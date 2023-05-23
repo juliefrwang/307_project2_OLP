@@ -22,7 +22,7 @@ md"""
 
 # ╔═╡ f695e678-f507-11ed-15b9-f38c8a6c7eaf
 md"""
-### 1. Generate iid random data
+# Generate iid random data
 """
 
 # ╔═╡ 87e7e259-51ba-465b-ab24-c7e4d7209067
@@ -47,7 +47,7 @@ end
 
 # ╔═╡ 5902034c-e3d1-4b72-abce-33bbb785cfc5
 md"""
-### 2. Offline problem
+# Offline problem
 Primal problem:
 
 $\begin{equation}
@@ -78,7 +78,7 @@ I tried define x as binary varibles: `@variable(lpmodel, x, Bin)`, but the solve
 
 # ╔═╡ f04b6ef1-f438-4c54-90d0-37735f211df0
 md"""
-#### Solve Primal.
+### Solve Primal.
 """
 
 # ╔═╡ 82c37b09-8ad2-46d4-9af6-6395eb2f7e57
@@ -110,7 +110,7 @@ end
 
 # ╔═╡ b08f97df-37dc-4bdf-8e0b-7af63fb992eb
 md"""
-#### Solve Dual.
+### Solve Dual.
 """
 
 # ╔═╡ 5691954b-46c1-4af5-9325-11a022dcd1a1
@@ -146,7 +146,7 @@ end
 
 # ╔═╡ d1bf6e84-260d-4811-ad21-85acb2f9d5a6
 md"""
-### 3. Online problem
+# Online problem
 Primal Problem:
 
 $\begin{equation}
@@ -226,7 +226,7 @@ end
 
 # ╔═╡ a321e640-aafe-406d-aa6b-a6cc1e888c95
 md"""
-### 4. One-time OLP
+# One-time OLP
 """
 
 # ╔═╡ c8d75e0d-6ca5-4bdd-b696-83dd9935762a
@@ -251,13 +251,13 @@ end
 
 # ╔═╡ 3e1206e4-7cfe-4c4d-8981-1dac4302ba5b
 md"""
-### 5. Questions
+# Questions
 """
 
 # ╔═╡ ddd18d8c-4f4d-4f9c-9958-a44a95432af1
 md"""
-##### Question 1: 
-Let n = 10, 000. Then run the one-time online learning (SLPM) algorithm using the same simulated bidding data above based on three different sizes of k = 50, 100, 200 to see how sensitive the ratio of the generated revenue over the offline revenue is to k. Note that we keep the estimated prices $\bar{y}^k$ fixed in this case. What is the trade-off between choosing large and small k?
+### Question 1: 
+Let n = 10, 000. Then run the one-time online learning (SLPM) algorithm using the same simulated bidding data above based on three different sizes of k = 50, 100, 200 to see how sensitive the ratio of the generated revenue over the offline revenue is to k. Note that we keep the estimated prices $\bar{y}^k$ __fixed__ in this case. What is the trade-off between choosing large and small k?
 """
 
 # ╔═╡ 5ed7af3d-9bc3-43f0-a69c-b4a2ebe9f14b
@@ -298,9 +298,42 @@ begin
 	oneTimeOlp(lpmodel_200, 200, A, b, r, n)
 end
 
+# ╔═╡ dc263218-108a-495a-bb85-52b9aff2d5ae
+md"""
+#### Try more k!
+"""
+
+# ╔═╡ 34c23a67-5ef0-4b46-8e84-e30e79aa126d
+begin
+	objVec = []
+	kVec = []
+	k = 50
+	while k <= 10000
+		lpmodel_ = Model(Ipopt.Optimizer)
+		push!(objVec, oneTimeOlp(lpmodel_, k, A, b, r, n))
+		push!(kVec, k)
+		k *= 2
+	end
+end
+
+# ╔═╡ fcca00f0-ebba-48ec-8214-d48131f9d894
+scatter(kVec, objVec, xlabel="k", ylabel="objective value")
+
+# ╔═╡ ec027907-b2f9-4838-9f4b-cf909f7a18a2
+md"""
+#### Sanity Check: k = n = 10000
+The objective value should be the same as the offline model.
+"""
+
+# ╔═╡ 711da709-1eee-45dd-abae-de67f8b1511e
+begin
+	lpmodel_10000 = Model(Ipopt.Optimizer)
+	oneTimeOlp(lpmodel_10000, 10000, A, b, r, n)
+end
+
 # ╔═╡ 85250945-a89c-46b5-9d93-46c248f044b1
 md"""
-#### Question 2: 
+### Question 2: 
 Now let us dynamically update the dual prices at time points k = 50, 100, 200, 400, 800... and use the prices to make decision for the immediate subsequent period. How does the dynamic learning perform on the revenue? Do the dual price vectors $\bar{y}^k$ generated from the online LP model approach the ground truth vector $\bar{p} > 0$? Explain your observations and findings. Again, use the same data generated in Question 1.
 """
 
@@ -1383,6 +1416,11 @@ version = "1.4.1+0"
 # ╠═f6d2bca3-7da7-49f3-aaa6-7e468e7c51cb
 # ╟─0ad1df2a-f582-451b-92d9-b12950bf3394
 # ╠═0dad607b-e52d-48b9-80bc-96e1ad487811
+# ╟─dc263218-108a-495a-bb85-52b9aff2d5ae
+# ╠═34c23a67-5ef0-4b46-8e84-e30e79aa126d
+# ╠═fcca00f0-ebba-48ec-8214-d48131f9d894
+# ╟─ec027907-b2f9-4838-9f4b-cf909f7a18a2
+# ╠═711da709-1eee-45dd-abae-de67f8b1511e
 # ╟─85250945-a89c-46b5-9d93-46c248f044b1
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
