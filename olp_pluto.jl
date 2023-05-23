@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.25
+# v0.19.24
 
 using Markdown
 using InteractiveUtils
@@ -22,14 +22,14 @@ md"""
 
 # ╔═╡ f695e678-f507-11ed-15b9-f38c8a6c7eaf
 md"""
-### Generate iid random data
+### 1. Generate iid random data
 """
 
 # ╔═╡ 87e7e259-51ba-465b-ab24-c7e4d7209067
 begin
 	Random.seed!(2234) # set random seed
 	m = 10 # number of resource
-	n = 200 # total number of bidders
+	n = 10000 # total number of bidders
 	
 	# define b, total available quantity
 	b = fill(1000, m)
@@ -43,18 +43,29 @@ begin
 	
 	# generate r of length n, bid from each bider j
 	r = A' * p̄ .+ sqrt(0.2) * randn(n)
-
-	I = fill(1, n)
 end
 
 # ╔═╡ 5902034c-e3d1-4b72-abce-33bbb785cfc5
 md"""
-### Offline problem
+### 2. Offline problem
+Primal problem:
+
 $\begin{equation}
     \begin{aligned}
 \max & \sum_{j=1}^n r_j x_j \\
 \text { s.t. } & \sum_{j=1}^n a_{i j} x_j \leq b_i,  & \forall \: i \: = \: 1, \ldots, m \\
 & 0 \leq x_j \leq 1,  & \forall \: j \: = \:1, \ldots, n
+\end{aligned}
+\end{equation}$
+
+Dual Problem:
+
+$\begin{equation}
+\begin{aligned}
+\min & \sum_{i=1}^m b_i p_i + \sum_{j=1}^n y_j \\
+\text { s.t. } & \sum_{i=1}^m a_{i j} p_i + y_j \geq r_j, & \forall \: j \: = \: 1, ..., n \\
+& p_i \geq 0, \;\; & \forall \: i \: = \: 1, ..., m \\
+& y_j \geq 0, \;\; & \forall \: j \: = \: 1, ..., n
 \end{aligned}
 \end{equation}$
 """
@@ -63,6 +74,11 @@ $\begin{equation}
 md"""
 __Question__ on the following code:
 I tried define x as binary varibles: `@variable(lpmodel, x, Bin)`, but the solver doesn't support.
+"""
+
+# ╔═╡ f04b6ef1-f438-4c54-90d0-37735f211df0
+md"""
+#### Solve Primal.
 """
 
 # ╔═╡ 82c37b09-8ad2-46d4-9af6-6395eb2f7e57
@@ -82,7 +98,7 @@ let
 	@objective(lpmodel, Max, r' * x)
 	
 	# Print Model
-	print(lpmodel)
+	# print(lpmodel)
 	
     # Solver call
     optimize!(lpmodel)
@@ -92,70 +108,13 @@ let
 	@show objective_value(lpmodel)
 end
 
-# ╔═╡ d1bf6e84-260d-4811-ad21-85acb2f9d5a6
+# ╔═╡ b08f97df-37dc-4bdf-8e0b-7af63fb992eb
 md"""
-### Online problem
-$\begin{equation}
-\begin{aligned}
-\max & \sum_{j=1}^k r_j x_j \\
-\text { s.t. } & \sum_{j=1}^k a_{i j} x_j \leq \frac{k}{n}b_i, & \forall \: i \: = \: 1, ..., m \\
-& 0 \leq x_j \leq 1, & \forall \: j \: = \: 1, ..., k
-\end{aligned}
-\end{equation}$
+#### Solve Dual.
 """
-
-# ╔═╡ ddd18d8c-4f4d-4f9c-9958-a44a95432af1
-md"""
-#### Question 1: 
-Let n = 10, 000. Then run the one-time online learning (SLPM) algorithm using the same simulated bidding data above based on three different sizes of k = 50, 100, 200 to see how sensitive the ratio of the generated revenue over the offline revenue is to k. Note that we keep the estimated prices $\bar{y}^k$ fixed in this case. What is the trade-off between choosing large and small k?
-"""
-
-# ╔═╡ 2fe22bb2-3c79-4a6a-97b6-4be7d8fc884d
-function solveOnlineLP(model, k, A, b, r, n)
-	# Variables, bounds and type
-    @variable(model, 0 .≤ x[1:k] .≤ 1)
-
-    # Constraints
-    @constraint(model, A[:, 1:k] * x ≤ k / n * b)
-
-    # objective function
-	@objective(model, Max, r[1:k]' * x)
-	
-	# Print Model
-	print(model)
-	
-    # Solver call
-    optimize!(model)
-	
-    # declare solution
-	@show value.(x)
-	@show objective_value(model)
-end
-
-# ╔═╡ b4e8cf04-0850-4666-bcb4-7cd2f7ba0b0b
-let
-	lpmodel = Model(Ipopt.Optimizer)
-	# lpmodel = Model(HiGHS.Optimizer)
-	solveOnlineLP(lpmodel, 50, A, b, r, n)
-end
-
-# ╔═╡ 3f8c11ee-936b-4f51-ab20-c9173874694b
-let
-	lpmodel = Model(Ipopt.Optimizer)
-	# lpmodel = Model(HiGHS.Optimizer)
-	solveOnlineLP(lpmodel, 100, A, b, r, n)
-end
-
-# ╔═╡ edb988c1-aaf6-4673-868e-ae5f6a667135
-let
-	lpmodel = Model(Ipopt.Optimizer)
-	# lpmodel = Model(HiGHS.Optimizer)
-	solveOnlineLP(lpmodel, 200, A, b, r, n)
-end
 
 # ╔═╡ 5691954b-46c1-4af5-9325-11a022dcd1a1
 # solving the dual 
-# gives suspicious answers, I dont know why, maybe i screwed up something?
 let
     # Model and Solver
 	lpmodel_dual = Model(Ipopt.Optimizer)
@@ -171,7 +130,7 @@ let
     @constraint(lpmodel_dual, A' * p + y >= r)
 
     # objective function
-	@objective(lpmodel_dual, Max, b' * p + sum(y))
+	@objective(lpmodel_dual, Min, b' * p + sum(y))
 	
 	# Print Model
 	#print(lpmodel_dual)
@@ -183,6 +142,160 @@ let
 	@show value.(p)
 	@show value.(y)
 	@show objective_value(lpmodel_dual)
+end
+
+# ╔═╡ d1bf6e84-260d-4811-ad21-85acb2f9d5a6
+md"""
+### 3. Online problem
+Primal Problem:
+
+$\begin{equation}
+\begin{aligned}
+\max & \sum_{j=1}^k r_j x_j \\
+\text { s.t. } & \sum_{j=1}^k a_{i j} x_j \leq \frac{k}{n}b_i, & \forall \: i \: = \: 1, ..., m \\
+& 0 \leq x_j \leq 1, & \forall \: j \: = \: 1, ..., k
+\end{aligned}
+\end{equation}$
+
+Dual Problem:
+
+$\begin{equation}
+\begin{aligned}
+\min & \sum_{i=1}^m \frac{k}{n} b_i p_i + \sum_{j=1}^n y_j \\
+\text { s.t. } & \sum_{i=1}^m a_{i j} p_i + y_j \geq r_j, & \forall \: j \: = \: 1, ..., k \\
+& p_i \geq 0, \;\; & \forall \: i \: = \: 1, ..., m \\
+& y_j \geq 0, \;\; & \forall \: j \: = \: 1, ..., k
+\end{aligned}
+\end{equation}$
+"""
+
+# ╔═╡ 2fe22bb2-3c79-4a6a-97b6-4be7d8fc884d
+function solveOlpPrimal(model, k, A, b, r, n)
+	"""
+	Return decisions partial decision variable x
+	"""
+	# Variables, bounds and type
+    @variable(model, 0 .≤ x[1:k] .≤ 1)
+
+    # Constraints
+    @constraint(model, A[:, 1:k] * x ≤ k / n * b)
+
+    # objective function
+	@objective(model, Max, r[1:k]' * x)
+	
+	# Print Model
+	# print(model)
+	
+    # Solver call
+    optimize!(model)
+	
+    # declare solution
+	# @show value.(x)
+	@show objective_value(model)
+
+	return value.(x)
+end
+
+# ╔═╡ 6cec47fa-026f-40d6-bdca-956e0323faf2
+function solveOlpDual(model, k, A, b, r, n)
+	"""
+	Return the fixed dual price ȳᵏ
+	"""
+    # Variables, bounds and type
+    @variable(model,  p[1:m] .≥ 0) # continuous
+	@variable(model,  y[1:k] .≥ 0) # continuous
+
+    # Constraints
+    @constraint(model, A[:, 1:k]' * p + y ≥ r[1:k])
+	@objective(model, Min, (k/n) * b' * p + sum(y))
+	
+	# Print Model
+	# print(model)
+	
+    # Solver call
+    optimize!(model)
+	
+    # declare solution
+	# @show value.(p)
+	# @show value.(y)
+	@show objective_value(model)
+
+	# return fixed dual price
+	return value.(p)
+end
+
+# ╔═╡ a321e640-aafe-406d-aa6b-a6cc1e888c95
+md"""
+### 4. One-time OLP
+"""
+
+# ╔═╡ c8d75e0d-6ca5-4bdd-b696-83dd9935762a
+function oneTimeOlp(model, k, A, b, r, n)
+	# initialize x for all n
+	x = zeros(n)
+	# Solve x up to k
+	x[1:k] = solveOlpPrimal(model, k, A, b, r, n)
+	# Solve fixed dual price p̄ 
+	p̄ = solveOlpDual(model, k, A, b, r, n)
+	# condition
+    for j in k+1:n
+        if r[j] > A[:,j]' * p̄ && A[:,j] * x[j] ≤ b - A * x
+        	x[j] = 1
+	    else
+	        x[j] = 0
+	    end
+    end
+	# objective value of primal 
+	return r' * x 
+end
+
+# ╔═╡ 3e1206e4-7cfe-4c4d-8981-1dac4302ba5b
+md"""
+### 5. Questions
+"""
+
+# ╔═╡ ddd18d8c-4f4d-4f9c-9958-a44a95432af1
+md"""
+##### Question 1: 
+Let n = 10, 000. Then run the one-time online learning (SLPM) algorithm using the same simulated bidding data above based on three different sizes of k = 50, 100, 200 to see how sensitive the ratio of the generated revenue over the offline revenue is to k. Note that we keep the estimated prices $\bar{y}^k$ fixed in this case. What is the trade-off between choosing large and small k?
+"""
+
+# ╔═╡ 5ed7af3d-9bc3-43f0-a69c-b4a2ebe9f14b
+md"""
+To solve the Online LP Primal and Dual problems, we can define the following functions:
+"""
+
+# ╔═╡ 48d8e218-59fb-4cb0-9240-8dd640d5be0b
+md"""
+##### k = 50
+"""
+
+# ╔═╡ 2d968288-5c45-4aec-9f27-27fc21f71e46
+begin
+	lpmodel_50 = Model(Ipopt.Optimizer)
+	oneTimeOlp(lpmodel_50, 50, A, b, r, n)
+end
+
+# ╔═╡ 3f774e11-0b47-43b9-89a1-bc208c1bdbf2
+md"""
+##### k = 100
+"""
+
+# ╔═╡ f6d2bca3-7da7-49f3-aaa6-7e468e7c51cb
+begin
+	lpmodel_100 = Model(Ipopt.Optimizer)
+	oneTimeOlp(lpmodel_100, 100, A, b, r, n)
+end
+
+# ╔═╡ 0ad1df2a-f582-451b-92d9-b12950bf3394
+md"""
+##### k = 200
+"""
+
+# ╔═╡ 0dad607b-e52d-48b9-80bc-96e1ad487811
+begin
+	lpmodel_200 = Model(Ipopt.Optimizer)
+	oneTimeOlp(lpmodel_200, 200, A, b, r, n)
 end
 
 # ╔═╡ 85250945-a89c-46b5-9d93-46c248f044b1
@@ -1252,14 +1365,24 @@ version = "1.4.1+0"
 # ╠═87e7e259-51ba-465b-ab24-c7e4d7209067
 # ╟─5902034c-e3d1-4b72-abce-33bbb785cfc5
 # ╟─7a375c87-e421-4d6b-b29b-ce8f9126b9da
+# ╟─f04b6ef1-f438-4c54-90d0-37735f211df0
 # ╠═82c37b09-8ad2-46d4-9af6-6395eb2f7e57
-# ╟─d1bf6e84-260d-4811-ad21-85acb2f9d5a6
-# ╟─ddd18d8c-4f4d-4f9c-9958-a44a95432af1
-# ╠═2fe22bb2-3c79-4a6a-97b6-4be7d8fc884d
-# ╠═b4e8cf04-0850-4666-bcb4-7cd2f7ba0b0b
-# ╠═3f8c11ee-936b-4f51-ab20-c9173874694b
-# ╠═edb988c1-aaf6-4673-868e-ae5f6a667135
+# ╟─b08f97df-37dc-4bdf-8e0b-7af63fb992eb
 # ╠═5691954b-46c1-4af5-9325-11a022dcd1a1
+# ╟─d1bf6e84-260d-4811-ad21-85acb2f9d5a6
+# ╠═2fe22bb2-3c79-4a6a-97b6-4be7d8fc884d
+# ╠═6cec47fa-026f-40d6-bdca-956e0323faf2
+# ╟─a321e640-aafe-406d-aa6b-a6cc1e888c95
+# ╠═c8d75e0d-6ca5-4bdd-b696-83dd9935762a
+# ╟─3e1206e4-7cfe-4c4d-8981-1dac4302ba5b
+# ╟─ddd18d8c-4f4d-4f9c-9958-a44a95432af1
+# ╟─5ed7af3d-9bc3-43f0-a69c-b4a2ebe9f14b
+# ╟─48d8e218-59fb-4cb0-9240-8dd640d5be0b
+# ╠═2d968288-5c45-4aec-9f27-27fc21f71e46
+# ╟─3f774e11-0b47-43b9-89a1-bc208c1bdbf2
+# ╠═f6d2bca3-7da7-49f3-aaa6-7e468e7c51cb
+# ╟─0ad1df2a-f582-451b-92d9-b12950bf3394
+# ╠═0dad607b-e52d-48b9-80bc-96e1ad487811
 # ╟─85250945-a89c-46b5-9d93-46c248f044b1
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
