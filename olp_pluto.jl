@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.24
+# v0.19.25
 
 using Markdown
 using InteractiveUtils
@@ -234,12 +234,13 @@ function oneTimeOlp(model, k, A, b, r, n)
 	# initialize x for all n
 	x = zeros(n)
 	# Solve x up to k
-	x[1:k] = solveOlpPrimal(model, k, A, b, r, n)
+
 	# Solve fixed dual price p̄ 
 	p̄ = solveOlpDual(model, k, A, b, r, n)
 	# condition
     for j in k+1:n
-        if r[j] > A[:,j]' * p̄ && A[:,j] * x[j] ≤ b - A * x
+		# if r[j] > A[:,j]' * p̄ && A[:,j] * x[j] ≤ b - A * x
+        if r[j] > A[:,j]' * p̄ && A[:,j] * 1 ≤ b - A * x
         	x[j] = 1
 	    else
 	        x[j] = 0
@@ -307,7 +308,7 @@ md"""
 begin
 	objVec = []
 	kVec = []
-	k = 50
+	k = 25
 	while k <= 10000
 		lpmodel_ = Model(Ipopt.Optimizer)
 		push!(objVec, oneTimeOlp(lpmodel_, k, A, b, r, n))
@@ -336,6 +337,63 @@ md"""
 ### Question 2: 
 Now let us dynamically update the dual prices at time points k = 50, 100, 200, 400, 800... and use the prices to make decision for the immediate subsequent period. How does the dynamic learning perform on the revenue? Do the dual price vectors $\bar{y}^k$ generated from the online LP model approach the ground truth vector $\bar{p} > 0$? Explain your observations and findings. Again, use the same data generated in Question 1.
 """
+
+# ╔═╡ 93d49d09-2fd2-4544-ad9f-aaaba3175c83
+	p_matrix = zeros(m, Int(ceil(log2(n/50))))
+
+# ╔═╡ 696df271-d03a-42b9-b7e8-545a6706ce5d
+function oneTimeOlpDynamic(model, k, A, b, r, n, p_matrix)
+	# initialize x for all n
+	x = zeros(n)
+	# Solve x up to k
+	idx = 1
+
+	# Solve fixed dual price p̄ 
+	p̄_d = solveOlpDual(model[1], k[1], A, b, r, n)
+	p_matrix[:,1] = p̄_d
+	# condition
+    for j in k[1]+1:n
+
+		if j in k
+			idx += 1
+			p̄_d = solveOlpDual(model[idx], j, A, b, r, n)
+			p_matrix[:,idx] = p̄_d
+		end
+		
+        if r[j] > A[:,j]' * p̄_d && A[:,j] * x[j] ≤ b - A * x
+        	x[j] = 1
+	    else
+	        x[j] = 0
+	    end
+    end
+	# objective value of primal 
+	return r' * x 
+end
+
+# ╔═╡ bb3d2c90-8169-4126-a8ae-10bab6a39839
+begin
+	objVec_d = []
+
+	
+	kk = [Int(50 * 2^i) for i in 0:log2(n/50)]
+	#kk = [50, 100, 200, 400, 800, 1600]
+	lpmodel_d = [Model(Ipopt.Optimizer) for i in 0:log2(n/50)]
+	# lpmodel_d = [Model(Ipopt.Optimizer), Model(Ipopt.Optimizer), Model(Ipopt.Optimizer), Model(Ipopt.Optimizer), Model(Ipopt.Optimizer), Model(Ipopt.Optimizer)]
+	
+	# push!(objVec_d, oneTimeOlpDynamic(lpmodel_d, kk, A, b, r, n))
+	res = oneTimeOlpDynamic(lpmodel_d, kk, A, b, r, n, p_matrix)
+end
+
+# ╔═╡ b3a8261c-a730-44db-b060-06ab7f682b63
+perror = zeros(10)
+
+# ╔═╡ 002e43d3-e717-4666-bbd4-db3fd27f2150
+for i = 1:Int(ceil(log2(n/50)))
+	perror[i] = norm(p_matrix[:, i] - p̄, 2)
+end
+
+# ╔═╡ 4327bbf3-156d-4076-ba68-bc14a3f82ccf
+perror
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1422,5 +1480,11 @@ version = "1.4.1+0"
 # ╟─ec027907-b2f9-4838-9f4b-cf909f7a18a2
 # ╠═711da709-1eee-45dd-abae-de67f8b1511e
 # ╟─85250945-a89c-46b5-9d93-46c248f044b1
+# ╠═93d49d09-2fd2-4544-ad9f-aaaba3175c83
+# ╠═696df271-d03a-42b9-b7e8-545a6706ce5d
+# ╠═bb3d2c90-8169-4126-a8ae-10bab6a39839
+# ╠═b3a8261c-a730-44db-b060-06ab7f682b63
+# ╠═002e43d3-e717-4666-bbd4-db3fd27f2150
+# ╠═4327bbf3-156d-4076-ba68-bc14a3f82ccf
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
