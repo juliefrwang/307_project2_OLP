@@ -27,7 +27,7 @@ md"""
 
 # ╔═╡ 87e7e259-51ba-465b-ab24-c7e4d7209067
 begin
-	Random.seed!(2234) # set random seed
+	Random.seed!(1234) # set random seed
 	m = 10 # number of resource
 	n = 10000 # total number of bidders
 	
@@ -92,7 +92,7 @@ let
 	# @variable(lpmodel, x, Bin)  # binary 
 
     # Constraints
-    @constraint(lpmodel, A * x ≤ b)
+    @constraint(lpmodel, A * x .≤ b)
 
     # objective function
 	@objective(lpmodel, Max, r' * x)
@@ -127,7 +127,7 @@ let
 	# @variable(lpmodel, x, Bin)  # binary 
 
     # Constraints
-    @constraint(lpmodel_dual, A' * p + y >= r)
+    @constraint(lpmodel_dual, A' * p + y .>= r)
 
     # objective function
 	@objective(lpmodel_dual, Min, b' * p + sum(y))
@@ -178,7 +178,7 @@ function solveOlpPrimal(model, k, A, b, r, n)
     @variable(model, 0 .≤ x[1:k] .≤ 1)
 
     # Constraints
-    @constraint(model, A[:, 1:k] * x ≤ k / n * b)
+    @constraint(model, A[:, 1:k] * x .≤ k / n * b)
 
     # objective function
 	@objective(model, Max, r[1:k]' * x)
@@ -206,7 +206,7 @@ function solveOlpDual(model, k, A, b, r, n)
 	@variable(model,  y[1:k] .≥ 0) # continuous
 
     # Constraints
-    @constraint(model, A[:, 1:k]' * p + y ≥ r[1:k])
+    @constraint(model, A[:, 1:k]' * p + y .≥ r[1:k])
 	@objective(model, Min, (k/n) * b' * p + sum(y))
 	
 	# Print Model
@@ -240,14 +240,17 @@ function oneTimeOlp(model, k, A, b, r, n)
 	# condition
     for j in k+1:n
 		# if r[j] > A[:,j]' * p̄ && A[:,j] * x[j] ≤ b - A * x
-        if r[j] > A[:,j]' * p̄ && A[:,j] * 1 ≤ b - A * x
+        if (r[j] > A[:,j]' * p̄) && all(A[:,j] * 1 .≤ b - A * x)
         	x[j] = 1
 	    else
 	        x[j] = 0
 	    end
     end
 	# objective value of primal 
+	show(A*x - b)
+	show(x[1:k])
 	return r' * x 
+
 end
 
 # ╔═╡ 3e1206e4-7cfe-4c4d-8981-1dac4302ba5b
@@ -265,6 +268,12 @@ Let n = 10, 000. Then run the one-time online learning (SLPM) algorithm using th
 md"""
 To solve the Online LP Primal and Dual problems, we can define the following functions:
 """
+
+# ╔═╡ 43e4fb45-00e9-4a0e-aa8f-1c4667f20342
+begin
+	lpmodel_25 = Model(Ipopt.Optimizer)
+	oneTimeOlp(lpmodel_25, 25, A, b, r, n)
+end
 
 # ╔═╡ 48d8e218-59fb-4cb0-9240-8dd640d5be0b
 md"""
@@ -319,6 +328,9 @@ end
 
 # ╔═╡ fcca00f0-ebba-48ec-8214-d48131f9d894
 scatter(kVec, objVec, xlabel="k", ylabel="objective value")
+
+# ╔═╡ ac15e428-e330-40cd-a57f-b4b5b5577c70
+objVec
 
 # ╔═╡ ec027907-b2f9-4838-9f4b-cf909f7a18a2
 md"""
@@ -384,16 +396,14 @@ begin
 	res = oneTimeOlpDynamic(lpmodel_d, kk, A, b, r, n, p_matrix)
 end
 
-# ╔═╡ b3a8261c-a730-44db-b060-06ab7f682b63
-perror = zeros(10)
-
 # ╔═╡ 002e43d3-e717-4666-bbd4-db3fd27f2150
-for i = 1:Int(ceil(log2(n/50)))
-	perror[i] = norm(p_matrix[:, i] - p̄, 2)
+begin
+	perror = zeros(Int(ceil(log2(n/50))))
+	for i = 1:Int(ceil(log2(n/50)))
+		perror[i] = norm(p_matrix[:, i] - p̄, 2)
+	end
+	show(perror)
 end
-
-# ╔═╡ 4327bbf3-156d-4076-ba68-bc14a3f82ccf
-perror
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1468,6 +1478,7 @@ version = "1.4.1+0"
 # ╟─3e1206e4-7cfe-4c4d-8981-1dac4302ba5b
 # ╟─ddd18d8c-4f4d-4f9c-9958-a44a95432af1
 # ╟─5ed7af3d-9bc3-43f0-a69c-b4a2ebe9f14b
+# ╠═43e4fb45-00e9-4a0e-aa8f-1c4667f20342
 # ╟─48d8e218-59fb-4cb0-9240-8dd640d5be0b
 # ╠═2d968288-5c45-4aec-9f27-27fc21f71e46
 # ╟─3f774e11-0b47-43b9-89a1-bc208c1bdbf2
@@ -1477,14 +1488,13 @@ version = "1.4.1+0"
 # ╟─dc263218-108a-495a-bb85-52b9aff2d5ae
 # ╠═34c23a67-5ef0-4b46-8e84-e30e79aa126d
 # ╠═fcca00f0-ebba-48ec-8214-d48131f9d894
+# ╠═ac15e428-e330-40cd-a57f-b4b5b5577c70
 # ╟─ec027907-b2f9-4838-9f4b-cf909f7a18a2
 # ╠═711da709-1eee-45dd-abae-de67f8b1511e
 # ╟─85250945-a89c-46b5-9d93-46c248f044b1
 # ╠═93d49d09-2fd2-4544-ad9f-aaaba3175c83
 # ╠═696df271-d03a-42b9-b7e8-545a6706ce5d
 # ╠═bb3d2c90-8169-4126-a8ae-10bab6a39839
-# ╠═b3a8261c-a730-44db-b060-06ab7f682b63
 # ╠═002e43d3-e717-4666-bbd4-db3fd27f2150
-# ╠═4327bbf3-156d-4076-ba68-bc14a3f82ccf
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
