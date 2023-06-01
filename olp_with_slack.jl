@@ -4,7 +4,7 @@
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ 60795b54-151c-4597-af3c-57d3e9856de5
+# ╔═╡ 3dbc8b20-0024-11ee-008f-b91900ee853b
 begin
 	using Plots
 	using LinearAlgebra
@@ -12,20 +12,15 @@ begin
 	using JuMP
 	using HiGHS
 	using Ipopt
+	using MadNLP
 end
 
-# ╔═╡ 55286f3b-8155-4d0a-b701-576363e12b05
-md"""
-# Online Linear Programming and Resource Allocation
-### May, 2023
-"""
-
-# ╔═╡ f695e678-f507-11ed-15b9-f38c8a6c7eaf
+# ╔═╡ 640ea052-7b3e-48f2-b268-dda054a00da5
 md"""
 # Generate iid random data
 """
 
-# ╔═╡ 87e7e259-51ba-465b-ab24-c7e4d7209067
+# ╔═╡ 062ed1d4-dabf-487a-8425-8c6539333133
 begin
 	Random.seed!(1234) # set random seed
 	m = 10 # number of resource
@@ -45,384 +40,100 @@ begin
 	r = A' * p̄ .+ sqrt(0.2) * randn(n)
 end
 
-# ╔═╡ 5902034c-e3d1-4b72-abce-33bbb785cfc5
-md"""
-# Offline problem
-Primal problem:
+# ╔═╡ 8eaad7f0-1c6c-451b-b26b-021ec215aab6
+w = 10
 
-$\begin{equation}
-    \begin{aligned}
-\max & \sum_{j=1}^n r_j x_j \\
-\text { s.t. } & \sum_{j=1}^n a_{i j} x_j \leq b_i,  & \forall \: i \: = \: 1, \ldots, m \\
-& 0 \leq x_j \leq 1,  & \forall \: j \: = \:1, \ldots, n
-\end{aligned}
-\end{equation}$
-
-Dual Problem:
-
-$\begin{equation}
-\begin{aligned}
-\min & \sum_{i=1}^m b_i p_i + \sum_{j=1}^n y_j \\
-\text { s.t. } & \sum_{i=1}^m a_{i j} p_i + y_j \geq r_j, & \forall \: j \: = \: 1, ..., n \\
-& p_i \geq 0, \;\; & \forall \: i \: = \: 1, ..., m \\
-& y_j \geq 0, \;\; & \forall \: j \: = \: 1, ..., n
-\end{aligned}
-\end{equation}$
-"""
-
-# ╔═╡ 7a375c87-e421-4d6b-b29b-ce8f9126b9da
-md"""
-__Question__ on the following code:
-I tried define x as binary varibles: `@variable(lpmodel, x, Bin)`, but the solver doesn't support.
-"""
-
-# ╔═╡ f04b6ef1-f438-4c54-90d0-37735f211df0
+# ╔═╡ d4b246c3-b7cb-454f-9618-0ef3065e2313
 md"""
 ### Solve Primal.
 """
 
-# ╔═╡ 82c37b09-8ad2-46d4-9af6-6395eb2f7e57
-let
-    # Model and Solver
-	lpmodel = Model(Ipopt.Optimizer)
-	# lpmodel = Model(HiGHS.Optimizer)
-    
-    # Variables, bounds and type
-    @variable(lpmodel, 0 .≤ x[1:n] .≤ 1) # continuous
-	# @variable(lpmodel, x, Bin)  # binary 
-
-    # Constraints
-    @constraint(lpmodel, A * x .≤ b)
-
-    # objective function
-	@objective(lpmodel, Max, r' * x)
+# ╔═╡ 60a10e71-c981-403d-b90e-492959be98f9
+begin
+	function nlprimal()
+	    # Model and Solver
+		nlpmodel = Model(Ipopt.Optimizer)
+		# lpmodel = Model(HiGHS.Optimizer)
+	    
+	    # Variables, bounds and type
+		@variables(nlpmodel, begin
+	        0 <= x[1:n] <= 1
+	        s[1:m] >= 0
+	    end)
 	
-	# Print Model
-	# print(lpmodel)
+	    # Constraints
+	    @constraint(nlpmodel, A * x + s .== b)
 	
-    # Solver call
-    optimize!(lpmodel)
-	
-    # declare solution
-	@show value.(x)
-	@show objective_value(lpmodel)
+	    # objective function
+		# @NLexpression(lpmodel, log_sum, w / m * sum(sin.(s)))
+	    # @NLobjective(lpmodel, Max, dot(r, x) + log_sum)
+		@NLobjective(nlpmodel, 
+					Max, 
+					# r' * x + w / m * sum(sin(s[i]) for i in 1:m),)
+					sum(sin(s[i]) for i in 1:m) * w / m + 
+					sum(r[j] * x[j] for j in 1:n), )
+		
+		# Print Model
+		# print(lpmodel)
+		
+	    # Solver call
+	    optimize!(nlpmodel)
+		
+	    # declare solution
+		@show value.(x)
+		@show objective_value(nlpmodel)
+		@show value.(s)
+	end
+	nlprimal()
 end
 
-# ╔═╡ b08f97df-37dc-4bdf-8e0b-7af63fb992eb
+# ╔═╡ 3c5f8bef-59a0-45f8-bdc0-10d907bb962b
 md"""
 ### Solve Dual.
 """
 
-# ╔═╡ 5691954b-46c1-4af5-9325-11a022dcd1a1
-# solving the dual 
-let
-    # Model and Solver
-	lpmodel_dual = Model(Ipopt.Optimizer)
-	# lpmodel_dual = Model(HiGHS.Optimizer)
-    
-    # Variables, bounds and type
-    @variable(lpmodel_dual,  p[1:m] .>= 0) # continuous
-
-	@variable(lpmodel_dual,  y[1:n] .>= 0) # continuous
-	# @variable(lpmodel, x, Bin)  # binary 
-
-    # Constraints
-    @constraint(lpmodel_dual, A' * p + y .>= r)
-
-    # objective function
-	@objective(lpmodel_dual, Min, b' * p + sum(y))
-	
-	# Print Model
-	#print(lpmodel_dual)
-	
-    # Solver call
-    optimize!(lpmodel_dual)
-	
-    # declare solution
-	@show value.(p)
-	@show value.(y)
-	@show objective_value(lpmodel_dual)
-end
-
-# ╔═╡ d1bf6e84-260d-4811-ad21-85acb2f9d5a6
-md"""
-# Online problem
-Primal Problem:
-
-$\begin{equation}
-\begin{aligned}
-\max & \sum_{j=1}^k r_j x_j \\
-\text { s.t. } & \sum_{j=1}^k a_{i j} x_j \leq \frac{k}{n}b_i, & \forall \: i \: = \: 1, ..., m \\
-& 0 \leq x_j \leq 1, & \forall \: j \: = \: 1, ..., k
-\end{aligned}
-\end{equation}$
-
-Dual Problem:
-
-$\begin{equation}
-\begin{aligned}
-\min & \sum_{i=1}^m \frac{k}{n} b_i p_i + \sum_{j=1}^n y_j \\
-\text { s.t. } & \sum_{i=1}^m a_{i j} p_i + y_j \geq r_j, & \forall \: j \: = \: 1, ..., k \\
-& p_i \geq 0, \;\; & \forall \: i \: = \: 1, ..., m \\
-& y_j \geq 0, \;\; & \forall \: j \: = \: 1, ..., k
-\end{aligned}
-\end{equation}$
-"""
-
-# ╔═╡ 2fe22bb2-3c79-4a6a-97b6-4be7d8fc884d
-function solveOlpPrimal(model, k, A, b, r, n)
-	"""
-	Return decisions partial decision variable x
-	"""
-	# Variables, bounds and type
-    @variable(model, 0 .≤ x[1:k] .≤ 1)
-
-    # Constraints
-    @constraint(model, A[:, 1:k] * x .≤ k / n * b)
-
-    # objective function
-	@objective(model, Max, r[1:k]' * x)
-	
-	# Print Model
-	# print(model)
-	
-    # Solver call
-    optimize!(model)
-	
-    # declare solution
-	# @show value.(x)
-	@show objective_value(model)
-
-	return value.(x)
-end
-
-# ╔═╡ 6cec47fa-026f-40d6-bdca-956e0323faf2
-function solveOlpDual(model, k, A, b, r, n)
-	"""
-	Return the fixed dual price ȳᵏ
-	"""
-    # Variables, bounds and type
-    @variable(model,  p[1:m] .≥ 0) # continuous
-	@variable(model,  y[1:k] .≥ 0) # continuous
-
-    # Constraints
-    @constraint(model, A[:, 1:k]' * p + y .≥ r[1:k])
-	@objective(model, Min, (k/n) * b' * p + sum(y))
-	
-	# Print Model
-	# print(model)
-	
-    # Solver call
-    optimize!(model)
-	
-    # declare solution
-	# @show value.(p)
-	# @show value.(y)
-	@show objective_value(model)
-
-	# return fixed dual price
-	return value.(p)
-end
-
-# ╔═╡ a321e640-aafe-406d-aa6b-a6cc1e888c95
-md"""
-# One-time OLP
-"""
-
-# ╔═╡ c8d75e0d-6ca5-4bdd-b696-83dd9935762a
-function oneTimeOlp(model, k, A, b, r, n)
-	# initialize x for all n
-	x = zeros(n)
-	# Solve x up to k
-
-	# Solve fixed dual price p̄ 
-	p̄ = solveOlpDual(model, k, A, b, r, n)
-	# condition
-    for j in k+1:n
-		# if r[j] > A[:,j]' * p̄ && A[:,j] * x[j] ≤ b - A * x
-        if (r[j] > A[:,j]' * p̄) && all(A[:,j] * 1 .≤ b - A * x)
-        	x[j] = 1
-	    else
-	        x[j] = 0
-	    end
-    end
-	# objective value of primal 
-	show(A*x - b)
-	show(x[1:k])
-	return r' * x 
-
-end
-
-# ╔═╡ 3e1206e4-7cfe-4c4d-8981-1dac4302ba5b
-md"""
-# Questions
-"""
-
-# ╔═╡ ddd18d8c-4f4d-4f9c-9958-a44a95432af1
-md"""
-### Question 1: 
-Let n = 10, 000. Then run the one-time online learning (SLPM) algorithm using the same simulated bidding data above based on three different sizes of k = 50, 100, 200 to see how sensitive the ratio of the generated revenue over the offline revenue is to k. Note that we keep the estimated prices $\bar{y}^k$ __fixed__ in this case. What is the trade-off between choosing large and small k?
-"""
-
-# ╔═╡ 5ed7af3d-9bc3-43f0-a69c-b4a2ebe9f14b
-md"""
-To solve the Online LP Primal and Dual problems, we can define the following functions:
-"""
-
-# ╔═╡ 43e4fb45-00e9-4a0e-aa8f-1c4667f20342
+# ╔═╡ 8b95dc8c-f1c3-4df6-8538-429fcd4ec21c
 begin
-	lpmodel_25 = Model(Ipopt.Optimizer)
-	oneTimeOlp(lpmodel_25, 25, A, b, r, n)
-end
+	#l = zeros(m)
+	#t = zeros(n)
+	#s = ones(m)
+	function nldual()
+		#nldmodel = Model(Ipopt.Optimizer)
+		nldmodel = Model(()->MadNLP.Optimizer(print_level=MadNLP.INFO, max_iter=100))
+		@variables(nldmodel, begin
+	        p[1:m] .>= 0
+	        t[1:n] .>= 0
+			l[1:m] .>= 0
+	    end)
 
-# ╔═╡ 48d8e218-59fb-4cb0-9240-8dd640d5be0b
-md"""
-##### k = 50
-"""
+		@constraint(
+			 nldmodel,
+             [i = 1:n],
+			 r[i] - t[i] - A[:, i]' * p <= 0,
+		)
 
-# ╔═╡ 2d968288-5c45-4aec-9f27-27fc21f71e46
-begin
-	lpmodel_50 = Model(Ipopt.Optimizer)
-	oneTimeOlp(lpmodel_50, 50, A, b, r, n)
-end
+		@NLobjective(
+			nldmodel,
+			Min,
+			sum(w/m * log(-w/(m * (-p[i] + l[i]))) for i in 1:m) -
+			sum(p[i] * (-w/(m * (-p[i] + l[i])) - b[i]) for i in 1:m) +
+			sum(t[i] for i in 1:n) + 
+			sum(-w/(m * (-p[i] + l[i])) * l[i] for i in 1:m),
+		)
 
-# ╔═╡ 3f774e11-0b47-43b9-89a1-bc208c1bdbf2
-md"""
-##### k = 100
-"""
-
-# ╔═╡ f6d2bca3-7da7-49f3-aaa6-7e468e7c51cb
-begin
-	lpmodel_100 = Model(Ipopt.Optimizer)
-	oneTimeOlp(lpmodel_100, 100, A, b, r, n)
-end
-
-# ╔═╡ 0ad1df2a-f582-451b-92d9-b12950bf3394
-md"""
-##### k = 200
-"""
-
-# ╔═╡ 0dad607b-e52d-48b9-80bc-96e1ad487811
-begin
-	lpmodel_200 = Model(Ipopt.Optimizer)
-	oneTimeOlp(lpmodel_200, 200, A, b, r, n)
-end
-
-# ╔═╡ dc263218-108a-495a-bb85-52b9aff2d5ae
-md"""
-#### Try more k!
-"""
-
-# ╔═╡ 34c23a67-5ef0-4b46-8e84-e30e79aa126d
-begin
-	objVec = []
-	kVec = []
-	k = 25
-	while k <= 10000
-		lpmodel_ = Model(Ipopt.Optimizer)
-		push!(objVec, oneTimeOlp(lpmodel_, k, A, b, r, n))
-		push!(kVec, k)
-		k *= 2
-	end
-end
-
-# ╔═╡ fcca00f0-ebba-48ec-8214-d48131f9d894
-scatter(kVec, objVec, xlabel="k", ylabel="objective value")
-
-# ╔═╡ a8101952-ed44-440a-a34a-4aee08cfeb82
-begin
-	comp_ratio = []
-	for objval in objVec
-		push!(comp_ratio, objval/6608.509052769659)
-		# the 6608.50 is the optimal value for seed 1234. change this when seed is changed
-	end
-	scatter(kVec, comp_ratio, xlabel="k", ylabel="competitive ratio", ylim = (0, 1), legend = false)
-end
-
-# ╔═╡ ec027907-b2f9-4838-9f4b-cf909f7a18a2
-md"""
-#### Sanity Check: k = n = 10000
-The objective value should be the same as the offline model.
-"""
-
-# ╔═╡ 711da709-1eee-45dd-abae-de67f8b1511e
-begin
-	lpmodel_10000 = Model(Ipopt.Optimizer)
-	oneTimeOlp(lpmodel_10000, 10000, A, b, r, n)
-end
-
-# ╔═╡ 85250945-a89c-46b5-9d93-46c248f044b1
-md"""
-### Question 2: 
-Now let us dynamically update the dual prices at time points k = 50, 100, 200, 400, 800... and use the prices to make decision for the immediate subsequent period. How does the dynamic learning perform on the revenue? Do the dual price vectors $\bar{y}^k$ generated from the online LP model approach the ground truth vector $\bar{p} > 0$? Explain your observations and findings. Again, use the same data generated in Question 1.
-"""
-
-# ╔═╡ 93d49d09-2fd2-4544-ad9f-aaaba3175c83
-	p_matrix = zeros(m, Int(ceil(log2(n/50))))
-
-# ╔═╡ 696df271-d03a-42b9-b7e8-545a6706ce5d
-function oneTimeOlpDynamic(model, k, A, b, r, n, p_matrix)
-	# initialize x for all n
-	x = zeros(n)
-	# Solve x up to k
-	idx = 1
-
-	# Solve fixed dual price p̄ 
-	p̄_d = solveOlpDual(model[1], k[1], A, b, r, n)
-	p_matrix[:,1] = p̄_d
-	# condition
-    for j in k[1]+1:n
-
-		if j in k
-			idx += 1
-			p̄_d = solveOlpDual(model[idx], j, A, b, r, n)
-			p_matrix[:,idx] = p̄_d
-		end
+		optimize!(nldmodel)
 		
-        if r[j] > A[:,j]' * p̄_d && A[:,j] * x[j] ≤ b - A * x
-        	x[j] = 1
-	    else
-	        x[j] = 0
-	    end
-    end
-	# objective value of primal 
-	return r' * x 
-end
-
-# ╔═╡ bb3d2c90-8169-4126-a8ae-10bab6a39839
-begin
-	objVec_d = []
-
-	
-	kk = [Int(50 * 2^i) for i in 0:log2(n/50)]
-	#kk = [50, 100, 200, 400, 800, 1600]
-	lpmodel_d = [Model(Ipopt.Optimizer) for i in 0:log2(n/50)]
-	# lpmodel_d = [Model(Ipopt.Optimizer), Model(Ipopt.Optimizer), Model(Ipopt.Optimizer), Model(Ipopt.Optimizer), Model(Ipopt.Optimizer), Model(Ipopt.Optimizer)]
-	
-	# push!(objVec_d, oneTimeOlpDynamic(lpmodel_d, kk, A, b, r, n))
-	res = oneTimeOlpDynamic(lpmodel_d, kk, A, b, r, n, p_matrix)
-end
-
-# ╔═╡ 002e43d3-e717-4666-bbd4-db3fd27f2150
-begin
-	perror = zeros(Int(ceil(log2(n/50))))
-	for i = 1:Int(ceil(log2(n/50)))
-		perror[i] = norm(p_matrix[:, i] - p̄, 2)
+	    # declare solution
+		@show value.(p)
+		@show value.(t)
+		@show value.(l)
+		@show objective_value(nldmodel)
 	end
-	show(perror)
+
+	nldual()
+
+	
 end
-
-# ╔═╡ 8e090e83-7801-4213-9278-99febcdbb64c
-begin
-	push!(kk, n)
-	push!(perror, 1.9222095593820128)
-end
-
-# ╔═╡ aef6b3e1-6b27-4764-99e7-7decbc038fe6
-scatter(kk, perror, xlabel="k", ylabel="L-2 norm of p-p*",  legend = false)
-
-# ╔═╡ 22202d44-1cc1-4a38-a882-9decdddd8296
-
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -431,8 +142,16 @@ HiGHS = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"
 Ipopt = "b6b21f68-93f8-5de0-b562-5493be1d77c9"
 JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+MadNLP = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+
+[compat]
+HiGHS = "~1.5.2"
+Ipopt = "~1.3.0"
+JuMP = "~1.11.1"
+MadNLP = "~0.6.0"
+Plots = "~1.38.14"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -441,7 +160,13 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.5"
 manifest_format = "2.0"
-project_hash = "bd22bca90a60edde28c290a3449e3b573ed483c6"
+project_hash = "dd132d64ef6a895b2a16db278019e517fb14d3d6"
+
+[[deps.AMD]]
+deps = ["Libdl", "LinearAlgebra", "SparseArrays", "Test"]
+git-tree-sha1 = "00163dc02b882ca5ec032400b919e5f5011dbd31"
+uuid = "14f7f29c-3bd6-536c-9a0b-7339e30b5a3e"
+version = "0.5.0"
 
 [[deps.ASL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -484,15 +209,15 @@ version = "1.16.1+1"
 
 [[deps.ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra", "SparseArrays"]
-git-tree-sha1 = "c6d890a52d2c4d55d326439580c3b8d0875a77d9"
+git-tree-sha1 = "e30f2f4e20f7f186dc36529910beaedc60cfa644"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-version = "1.15.7"
+version = "1.16.0"
 
 [[deps.ChangesOfVariables]]
-deps = ["ChainRulesCore", "LinearAlgebra", "Test"]
-git-tree-sha1 = "485193efd2176b88e6622a39a246f8c5b600e74e"
+deps = ["LinearAlgebra", "Test"]
+git-tree-sha1 = "f84967c4497e0e1955f9a582c232b02847c5f589"
 uuid = "9e997f8a-9a97-42d5-a9f1-ce6bfc15e2c0"
-version = "0.1.6"
+version = "0.1.7"
 
 [[deps.CodecBzip2]]
 deps = ["Bzip2_jll", "Libdl", "TranscodingStreams"]
@@ -507,10 +232,10 @@ uuid = "944b1d66-785c-5afd-91f1-9de20f533193"
 version = "0.7.1"
 
 [[deps.ColorSchemes]]
-deps = ["ColorTypes", "ColorVectorSpace", "Colors", "FixedPointNumbers", "Random", "SnoopPrecompile"]
-git-tree-sha1 = "aa3edc8f8dea6cbfa176ee12f7c2fc82f0608ed3"
+deps = ["ColorTypes", "ColorVectorSpace", "Colors", "FixedPointNumbers", "PrecompileTools", "Random"]
+git-tree-sha1 = "be6ab11021cd29f0344d5c4357b163af05a48cba"
 uuid = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
-version = "3.20.0"
+version = "3.21.0"
 
 [[deps.ColorTypes]]
 deps = ["FixedPointNumbers", "Random"]
@@ -547,15 +272,27 @@ deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
 version = "1.0.1+0"
 
+[[deps.ConcurrentUtilities]]
+deps = ["Serialization", "Sockets"]
+git-tree-sha1 = "96d823b94ba8d187a6d8f0826e731195a74b90e9"
+uuid = "f0e56b4a-5159-44fe-b623-3e5288b988bb"
+version = "2.2.0"
+
+[[deps.ConstructionBase]]
+deps = ["LinearAlgebra"]
+git-tree-sha1 = "738fec4d684a9a6ee9598a8bfee305b26831f28c"
+uuid = "187b0558-2788-49d3-abe0-74a17ed4e7c9"
+version = "1.5.2"
+
 [[deps.Contour]]
 git-tree-sha1 = "d05d9e7b7aedff4e5b51a029dced05cfb6125781"
 uuid = "d38c429a-6771-53c6-b99e-75d170b6e991"
 version = "0.6.2"
 
 [[deps.DataAPI]]
-git-tree-sha1 = "e8119c1a33d267e16108be441a287a6981ba1630"
+git-tree-sha1 = "8da84edb865b0b5b0100c0666a9bc9a0b71c553c"
 uuid = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"
-version = "1.14.0"
+version = "1.15.0"
 
 [[deps.DataStructures]]
 deps = ["Compat", "InteractiveUtils", "OrderedCollections"]
@@ -600,6 +337,11 @@ git-tree-sha1 = "bad72f730e9e91c08d9427d5e8db95478a3c323d"
 uuid = "2e619515-83b5-522b-bb60-26c02a35a201"
 version = "2.4.8+0"
 
+[[deps.ExprTools]]
+git-tree-sha1 = "c1d06d129da9f55715c6c212866f5b1bddc5fa00"
+uuid = "e2ba6199-217a-4e67-a87a-7c52f15ade04"
+version = "0.1.9"
+
 [[deps.FFMPEG]]
 deps = ["FFMPEG_jll"]
 git-tree-sha1 = "b57e3acbe22f8484b4b5ff66a7499717fe1a9cc8"
@@ -611,6 +353,11 @@ deps = ["Artifacts", "Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "JLLWrappers",
 git-tree-sha1 = "74faea50c1d007c85837327f6775bea60b5492dd"
 uuid = "b22a6f82-2f65-5046-a5b2-351ab43fb4e5"
 version = "4.4.2+2"
+
+[[deps.FastClosures]]
+git-tree-sha1 = "acebe244d53ee1b461970f8910c235b259e772ef"
+uuid = "9aa1b823-49e4-5ca5-8b0f-3971ec8bab6a"
+version = "0.3.2"
 
 [[deps.FileWatching]]
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
@@ -659,15 +406,15 @@ version = "3.3.8+0"
 
 [[deps.GR]]
 deps = ["Artifacts", "Base64", "DelimitedFiles", "Downloads", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Preferences", "Printf", "Random", "Serialization", "Sockets", "TOML", "Tar", "Test", "UUIDs", "p7zip_jll"]
-git-tree-sha1 = "011a22022ed2fb0352a9bded0fa9d3793a8db362"
+git-tree-sha1 = "8b8a2fd4536ece6e554168c21860b6820a8a83db"
 uuid = "28b8d3ca-fb5f-59d9-8090-bfdbd6d07a71"
-version = "0.72.1"
+version = "0.72.7"
 
 [[deps.GR_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Cairo_jll", "FFMPEG_jll", "Fontconfig_jll", "GLFW_jll", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pixman_jll", "Qt5Base_jll", "Zlib_jll", "libpng_jll"]
-git-tree-sha1 = "7ea8ead860c85b27e83d198ea54bb2f387db9fc3"
+git-tree-sha1 = "19fad9cd9ae44847fe842558a744748084a722d1"
 uuid = "d2c73de3-f751-5644-a686-071e5b155ba9"
-version = "0.72.1+1"
+version = "0.72.7+0"
 
 [[deps.Gettext_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "XML2_jll"]
@@ -693,10 +440,10 @@ uuid = "42e2da0e-8278-4e71-bc24-59509adca0fe"
 version = "1.0.2"
 
 [[deps.HTTP]]
-deps = ["Base64", "CodecZlib", "Dates", "IniFile", "Logging", "LoggingExtras", "MbedTLS", "NetworkOptions", "OpenSSL", "Random", "SimpleBufferStream", "Sockets", "URIs", "UUIDs"]
-git-tree-sha1 = "37e4657cd56b11abe3d10cd4a1ec5fbdb4180263"
+deps = ["Base64", "CodecZlib", "ConcurrentUtilities", "Dates", "Logging", "LoggingExtras", "MbedTLS", "NetworkOptions", "OpenSSL", "Random", "SimpleBufferStream", "Sockets", "URIs", "UUIDs"]
+git-tree-sha1 = "5e77dbf117412d4f164a464d610ee6050cc75272"
 uuid = "cd3eb016-35fb-5094-929b-558a96fad6f3"
-version = "1.7.4"
+version = "1.9.6"
 
 [[deps.HarfBuzz_jll]]
 deps = ["Artifacts", "Cairo_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "Graphite2_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg"]
@@ -705,21 +452,16 @@ uuid = "2e76f6c2-a576-52d4-95c1-20adfe4de566"
 version = "2.8.1+1"
 
 [[deps.HiGHS]]
-deps = ["HiGHS_jll", "MathOptInterface", "SnoopPrecompile", "SparseArrays"]
-git-tree-sha1 = "08535862ef6d42a01ffcaaf6507cfb8a0fe329a6"
+deps = ["HiGHS_jll", "MathOptInterface", "PrecompileTools", "SparseArrays"]
+git-tree-sha1 = "bbd4ab443dfac4c9d5c5b40dd45f598dfad2e26a"
 uuid = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"
-version = "1.5.1"
+version = "1.5.2"
 
 [[deps.HiGHS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "53aadc2a53ef3ecc4704549b4791dea67657a4bb"
+git-tree-sha1 = "216e7198aeb256e7c7921ef2937d7e1e589ba6fd"
 uuid = "8fd58aa0-07eb-5a78-9b36-339c94fd15ea"
-version = "1.5.1+0"
-
-[[deps.IniFile]]
-git-tree-sha1 = "f550e6e32074c939295eb5ea6de31849ac2c9625"
-uuid = "83e8ac13-25f8-5344-8a64-a9f2b223428f"
-version = "0.5.1"
+version = "1.5.3+0"
 
 [[deps.InteractiveUtils]]
 deps = ["Markdown"]
@@ -727,21 +469,21 @@ uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 
 [[deps.InverseFunctions]]
 deps = ["Test"]
-git-tree-sha1 = "49510dfcb407e572524ba94aeae2fced1f3feb0f"
+git-tree-sha1 = "6667aadd1cdee2c6cd068128b3d226ebc4fb0c67"
 uuid = "3587e190-3f89-42d0-90ee-14403ec27112"
-version = "0.1.8"
+version = "0.1.9"
 
 [[deps.Ipopt]]
-deps = ["Ipopt_jll", "LinearAlgebra", "MathOptInterface", "OpenBLAS32_jll", "SnoopPrecompile"]
-git-tree-sha1 = "392d19287155a54d0053360a90dd1b43037a8ef2"
+deps = ["Ipopt_jll", "LinearAlgebra", "MathOptInterface", "OpenBLAS32_jll", "PrecompileTools"]
+git-tree-sha1 = "349e4c61bd7eb867e8fb1e8bd1ace76c7764e572"
 uuid = "b6b21f68-93f8-5de0-b562-5493be1d77c9"
-version = "1.2.1"
+version = "1.3.0"
 
 [[deps.Ipopt_jll]]
-deps = ["ASL_jll", "Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "MUMPS_seq_jll", "OpenBLAS32_jll", "Pkg", "libblastrampoline_jll"]
-git-tree-sha1 = "97c0e9fa36e93448fe214fea5366fac1ba3d1bfa"
+deps = ["ASL_jll", "Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "MUMPS_seq_jll", "OpenBLAS32_jll", "libblastrampoline_jll"]
+git-tree-sha1 = "0d3939fb672b84082f3ee930b51de03df935be31"
 uuid = "9cc047cb-c261-5740-88fc-0cf96f7bdcc7"
-version = "300.1400.1000+0"
+version = "300.1400.1200+0"
 
 [[deps.IrrationalConstants]]
 git-tree-sha1 = "630b497eafcc20001bba38a4651b327dcfc491d2"
@@ -774,15 +516,21 @@ version = "2.1.91+0"
 
 [[deps.JuMP]]
 deps = ["LinearAlgebra", "MathOptInterface", "MutableArithmetics", "OrderedCollections", "Printf", "SnoopPrecompile", "SparseArrays"]
-git-tree-sha1 = "4ec0e68fecbbe1b78db2ddf1ac573963ed5adebc"
+git-tree-sha1 = "3e4a73edf2ca1bfe97f1fc86eb4364f95ef0fccd"
 uuid = "4076af6c-e467-56ae-b986-b466b2749572"
-version = "1.10.0"
+version = "1.11.1"
 
 [[deps.LAME_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "f6250b16881adf048549549fba48b1161acdac8c"
 uuid = "c1c5ebd0-6772-5130-a774-d5fcae4a789d"
 version = "3.100.1+0"
+
+[[deps.LDLFactorizations]]
+deps = ["AMD", "LinearAlgebra", "SparseArrays", "Test"]
+git-tree-sha1 = "cbf4b646f82bfc58bb48bcca9dcce2eb88da4cd1"
+uuid = "40e66cde-538c-5869-a4ad-c39174c6795b"
+version = "0.10.0"
 
 [[deps.LERC_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -803,9 +551,9 @@ version = "1.3.0"
 
 [[deps.Latexify]]
 deps = ["Formatting", "InteractiveUtils", "LaTeXStrings", "MacroTools", "Markdown", "OrderedCollections", "Printf", "Requires"]
-git-tree-sha1 = "2422f47b34d4b127720a18f86fa7b1aa2e141f29"
+git-tree-sha1 = "099e356f267354f46ba65087981a77da23a279b7"
 uuid = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
-version = "0.15.18"
+version = "0.16.0"
 
 [[deps.LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
@@ -881,6 +629,12 @@ version = "2.36.0+0"
 deps = ["Libdl", "libblastrampoline_jll"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
+[[deps.LinearOperators]]
+deps = ["FastClosures", "LDLFactorizations", "LinearAlgebra", "Printf", "SparseArrays", "TimerOutputs"]
+git-tree-sha1 = "a58ab1d18efa0bcf9f0868c6d387e4126dad3e72"
+uuid = "5c8ed15e-5a4c-59e4-a42b-c7e8811fb125"
+version = "2.5.2"
+
 [[deps.LogExpFunctions]]
 deps = ["ChainRulesCore", "ChangesOfVariables", "DocStringExtensions", "InverseFunctions", "IrrationalConstants", "LinearAlgebra"]
 git-tree-sha1 = "0a1b7c2863e44523180fdb3146534e265a91870b"
@@ -914,15 +668,21 @@ git-tree-sha1 = "42324d08725e200c23d4dfb549e0d5d89dede2d2"
 uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 version = "0.5.10"
 
+[[deps.MadNLP]]
+deps = ["Libdl", "LinearAlgebra", "Logging", "MathOptInterface", "NLPModels", "Pkg", "Printf", "SolverCore", "SparseArrays", "SuiteSparse"]
+git-tree-sha1 = "16af26a035b117175faf6f5f4c92bb10300e0ad7"
+uuid = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
+version = "0.6.0"
+
 [[deps.Markdown]]
 deps = ["Base64"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 
 [[deps.MathOptInterface]]
-deps = ["BenchmarkTools", "CodecBzip2", "CodecZlib", "DataStructures", "ForwardDiff", "JSON", "LinearAlgebra", "MutableArithmetics", "NaNMath", "OrderedCollections", "Printf", "SnoopPrecompile", "SparseArrays", "SpecialFunctions", "Test", "Unicode"]
-git-tree-sha1 = "3b38f6fbd62cbd61d8dbf625136d7b75478bf2c5"
+deps = ["BenchmarkTools", "CodecBzip2", "CodecZlib", "DataStructures", "ForwardDiff", "JSON", "LinearAlgebra", "MutableArithmetics", "NaNMath", "OrderedCollections", "PrecompileTools", "Printf", "SparseArrays", "SpecialFunctions", "Test", "Unicode"]
+git-tree-sha1 = "6ba094e471106981b278f60179170d8b10985052"
 uuid = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
-version = "1.15.0"
+version = "1.16.0"
 
 [[deps.MbedTLS]]
 deps = ["Dates", "MbedTLS_jll", "MozillaCACerts_jll", "Random", "Sockets"]
@@ -955,9 +715,15 @@ version = "2022.2.1"
 
 [[deps.MutableArithmetics]]
 deps = ["LinearAlgebra", "SparseArrays", "Test"]
-git-tree-sha1 = "3295d296288ab1a0a2528feb424b854418acff57"
+git-tree-sha1 = "964cb1a7069723727025ae295408747a0b36a854"
 uuid = "d8a4904e-b15c-11e9-3269-09a3773c0cb0"
-version = "1.2.3"
+version = "1.3.0"
+
+[[deps.NLPModels]]
+deps = ["FastClosures", "LinearAlgebra", "LinearOperators", "Printf", "SparseArrays"]
+git-tree-sha1 = "e0fe93dc386173d7013621f2937916765a9c0f60"
+uuid = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
+version = "0.19.2"
 
 [[deps.NaNMath]]
 deps = ["OpenLibm_jll"]
@@ -993,15 +759,15 @@ version = "0.8.1+0"
 
 [[deps.OpenSSL]]
 deps = ["BitFlags", "Dates", "MozillaCACerts_jll", "OpenSSL_jll", "Sockets"]
-git-tree-sha1 = "5b3e170ea0724f1e3ed6018c5b006c190f80e87d"
+git-tree-sha1 = "51901a49222b09e3743c65b8847687ae5fc78eb2"
 uuid = "4d8831e6-92b7-49fb-bdf8-b643e874388c"
-version = "1.3.5"
+version = "1.4.1"
 
 [[deps.OpenSSL_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "9ff31d101d987eb9d66bd8b176ac7c277beccd09"
+deps = ["Artifacts", "JLLWrappers", "Libdl"]
+git-tree-sha1 = "1aa4b74f80b01c6bc2b89992b861b5f210e665b5"
 uuid = "458c3c95-2e84-50aa-8efc-19380b2a3a95"
-version = "1.1.20+0"
+version = "1.1.21+0"
 
 [[deps.OpenSpecFun_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Pkg"]
@@ -1026,10 +792,10 @@ uuid = "efcefdf7-47ab-520b-bdef-62a2eaa19f15"
 version = "10.40.0+0"
 
 [[deps.Parsers]]
-deps = ["Dates", "SnoopPrecompile"]
-git-tree-sha1 = "478ac6c952fddd4399e71d4779797c538d0ff2bf"
+deps = ["Dates", "PrecompileTools", "UUIDs"]
+git-tree-sha1 = "a5aef8d4a6e8d81f171b2bd4be5265b01384c74c"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
-version = "2.5.8"
+version = "2.5.10"
 
 [[deps.Pipe]]
 git-tree-sha1 = "6842804e7867b115ca9de748a0cf6b364523c16d"
@@ -1054,22 +820,28 @@ uuid = "ccf2f8ad-2431-5c83-bf29-c5338b663b6a"
 version = "3.1.0"
 
 [[deps.PlotUtils]]
-deps = ["ColorSchemes", "Colors", "Dates", "Printf", "Random", "Reexport", "SnoopPrecompile", "Statistics"]
-git-tree-sha1 = "c95373e73290cf50a8a22c3375e4625ded5c5280"
+deps = ["ColorSchemes", "Colors", "Dates", "PrecompileTools", "Printf", "Random", "Reexport", "Statistics"]
+git-tree-sha1 = "f92e1315dadf8c46561fb9396e525f7200cdc227"
 uuid = "995b91a9-d308-5afd-9ec6-746e21dbc043"
-version = "1.3.4"
+version = "1.3.5"
 
 [[deps.Plots]]
-deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "JLFzf", "JSON", "LaTeXStrings", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "Preferences", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "RelocatableFolders", "Requires", "Scratch", "Showoff", "SnoopPrecompile", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "Unzip"]
-git-tree-sha1 = "5434b0ee344eaf2854de251f326df8720f6a7b55"
+deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "JLFzf", "JSON", "LaTeXStrings", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "PrecompileTools", "Preferences", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "RelocatableFolders", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "UnitfulLatexify", "Unzip"]
+git-tree-sha1 = "ad59edfb711a4751e0b8271454df47f84a47a29e"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-version = "1.38.10"
+version = "1.38.14"
+
+[[deps.PrecompileTools]]
+deps = ["Preferences"]
+git-tree-sha1 = "259e206946c293698122f63e2b513a7c99a244e8"
+uuid = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
+version = "1.1.1"
 
 [[deps.Preferences]]
 deps = ["TOML"]
-git-tree-sha1 = "47e5f437cc0e7ef2ce8406ce1e7e24d44915f88d"
+git-tree-sha1 = "7eb1686b4f04b82f96ed7a4ea5890a4f0c7a09f1"
 uuid = "21216c6a-2e73-6563-6e65-726566657250"
-version = "1.3.0"
+version = "1.4.0"
 
 [[deps.Printf]]
 deps = ["Unicode"]
@@ -1094,16 +866,16 @@ deps = ["SHA", "Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [[deps.RecipesBase]]
-deps = ["SnoopPrecompile"]
-git-tree-sha1 = "261dddd3b862bd2c940cf6ca4d1c8fe593e457c8"
+deps = ["PrecompileTools"]
+git-tree-sha1 = "5c3d09cc4f31f5fc6af001c250bf1278733100ff"
 uuid = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
-version = "1.3.3"
+version = "1.3.4"
 
 [[deps.RecipesPipeline]]
-deps = ["Dates", "NaNMath", "PlotUtils", "RecipesBase", "SnoopPrecompile"]
-git-tree-sha1 = "e974477be88cb5e3040009f3767611bc6357846f"
+deps = ["Dates", "NaNMath", "PlotUtils", "PrecompileTools", "RecipesBase"]
+git-tree-sha1 = "45cf9fd0ca5839d06ef333c8201714e888486342"
 uuid = "01d81517-befc-4cb6-b9ec-a95719d0359c"
-version = "0.6.11"
+version = "0.6.12"
 
 [[deps.Reexport]]
 git-tree-sha1 = "45e428421666073eab6f2da5c9d310d99bb12f9b"
@@ -1155,6 +927,12 @@ version = "1.0.3"
 [[deps.Sockets]]
 uuid = "6462fe0b-24de-5631-8697-dd941f90decc"
 
+[[deps.SolverCore]]
+deps = ["LinearAlgebra", "NLPModels", "Printf"]
+git-tree-sha1 = "9fb0712d597d6598857ae50b7744df17b1137b38"
+uuid = "ff4d7338-4cf1-434d-91df-b86cb86fb843"
+version = "0.3.7"
+
 [[deps.SortingAlgorithms]]
 deps = ["DataStructures"]
 git-tree-sha1 = "a4ada03f999bd01b3a25dcaa30b2d929fe537e00"
@@ -1173,9 +951,9 @@ version = "2.2.0"
 
 [[deps.StaticArrays]]
 deps = ["LinearAlgebra", "Random", "StaticArraysCore", "Statistics"]
-git-tree-sha1 = "63e84b7fdf5021026d0f17f76af7c57772313d99"
+git-tree-sha1 = "8982b3607a212b070a5e46eea83eb62b4744ae12"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.5.21"
+version = "1.5.25"
 
 [[deps.StaticArraysCore]]
 git-tree-sha1 = "6b7ba252635a5eff6a0b0664a41ee140a1c9e72a"
@@ -1194,9 +972,13 @@ version = "1.6.0"
 
 [[deps.StatsBase]]
 deps = ["DataAPI", "DataStructures", "LinearAlgebra", "LogExpFunctions", "Missings", "Printf", "Random", "SortingAlgorithms", "SparseArrays", "Statistics", "StatsAPI"]
-git-tree-sha1 = "d1bf48bfcc554a3761a133fe3a9bb01488e06916"
+git-tree-sha1 = "75ebe04c5bed70b91614d684259b661c9e6274a4"
 uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
-version = "0.33.21"
+version = "0.34.0"
+
+[[deps.SuiteSparse]]
+deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
+uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 
 [[deps.TOML]]
 deps = ["Dates"]
@@ -1218,11 +1000,17 @@ version = "0.1.1"
 deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
+[[deps.TimerOutputs]]
+deps = ["ExprTools", "Printf"]
+git-tree-sha1 = "f548a9e9c490030e545f72074a41edfd0e5bcdd7"
+uuid = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
+version = "0.5.23"
+
 [[deps.TranscodingStreams]]
 deps = ["Random", "Test"]
-git-tree-sha1 = "0b829474fed270a4b0ab07117dce9b9a2fa7581a"
+git-tree-sha1 = "9a6ae7ed916312b41236fcef7e0af564ef934769"
 uuid = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
-version = "0.9.12"
+version = "0.9.13"
 
 [[deps.URIs]]
 git-tree-sha1 = "074f993b0ca030848b897beff716d93aca60f06a"
@@ -1241,6 +1029,18 @@ deps = ["REPL"]
 git-tree-sha1 = "53915e50200959667e78a92a418594b428dffddf"
 uuid = "1cfade01-22cf-5700-b092-accc4b62d6e1"
 version = "0.4.1"
+
+[[deps.Unitful]]
+deps = ["ConstructionBase", "Dates", "LinearAlgebra", "Random"]
+git-tree-sha1 = "ba4aa36b2d5c98d6ed1f149da916b3ba46527b2b"
+uuid = "1986cc42-f94f-5a68-af5c-568840ba703d"
+version = "1.14.0"
+
+[[deps.UnitfulLatexify]]
+deps = ["LaTeXStrings", "Latexify", "Unitful"]
+git-tree-sha1 = "e2d817cc500e960fdbafcf988ac8436ba3208bfd"
+uuid = "45397f5d-5981-4c77-b2b3-fc36d6e9b728"
+version = "1.6.3"
 
 [[deps.Unzip]]
 git-tree-sha1 = "ca0969166a028236229f63514992fc073799bb78"
@@ -1479,44 +1279,13 @@ version = "1.4.1+0"
 """
 
 # ╔═╡ Cell order:
-# ╟─55286f3b-8155-4d0a-b701-576363e12b05
-# ╠═60795b54-151c-4597-af3c-57d3e9856de5
-# ╟─f695e678-f507-11ed-15b9-f38c8a6c7eaf
-# ╠═87e7e259-51ba-465b-ab24-c7e4d7209067
-# ╟─5902034c-e3d1-4b72-abce-33bbb785cfc5
-# ╟─7a375c87-e421-4d6b-b29b-ce8f9126b9da
-# ╠═f04b6ef1-f438-4c54-90d0-37735f211df0
-# ╠═82c37b09-8ad2-46d4-9af6-6395eb2f7e57
-# ╟─b08f97df-37dc-4bdf-8e0b-7af63fb992eb
-# ╠═5691954b-46c1-4af5-9325-11a022dcd1a1
-# ╟─d1bf6e84-260d-4811-ad21-85acb2f9d5a6
-# ╠═2fe22bb2-3c79-4a6a-97b6-4be7d8fc884d
-# ╠═6cec47fa-026f-40d6-bdca-956e0323faf2
-# ╟─a321e640-aafe-406d-aa6b-a6cc1e888c95
-# ╠═c8d75e0d-6ca5-4bdd-b696-83dd9935762a
-# ╟─3e1206e4-7cfe-4c4d-8981-1dac4302ba5b
-# ╟─ddd18d8c-4f4d-4f9c-9958-a44a95432af1
-# ╟─5ed7af3d-9bc3-43f0-a69c-b4a2ebe9f14b
-# ╠═43e4fb45-00e9-4a0e-aa8f-1c4667f20342
-# ╟─48d8e218-59fb-4cb0-9240-8dd640d5be0b
-# ╠═2d968288-5c45-4aec-9f27-27fc21f71e46
-# ╟─3f774e11-0b47-43b9-89a1-bc208c1bdbf2
-# ╠═f6d2bca3-7da7-49f3-aaa6-7e468e7c51cb
-# ╟─0ad1df2a-f582-451b-92d9-b12950bf3394
-# ╠═0dad607b-e52d-48b9-80bc-96e1ad487811
-# ╟─dc263218-108a-495a-bb85-52b9aff2d5ae
-# ╠═34c23a67-5ef0-4b46-8e84-e30e79aa126d
-# ╠═fcca00f0-ebba-48ec-8214-d48131f9d894
-# ╠═a8101952-ed44-440a-a34a-4aee08cfeb82
-# ╟─ec027907-b2f9-4838-9f4b-cf909f7a18a2
-# ╠═711da709-1eee-45dd-abae-de67f8b1511e
-# ╟─85250945-a89c-46b5-9d93-46c248f044b1
-# ╠═93d49d09-2fd2-4544-ad9f-aaaba3175c83
-# ╠═696df271-d03a-42b9-b7e8-545a6706ce5d
-# ╠═bb3d2c90-8169-4126-a8ae-10bab6a39839
-# ╠═002e43d3-e717-4666-bbd4-db3fd27f2150
-# ╠═8e090e83-7801-4213-9278-99febcdbb64c
-# ╠═aef6b3e1-6b27-4764-99e7-7decbc038fe6
-# ╠═22202d44-1cc1-4a38-a882-9decdddd8296
+# ╠═3dbc8b20-0024-11ee-008f-b91900ee853b
+# ╟─640ea052-7b3e-48f2-b268-dda054a00da5
+# ╠═062ed1d4-dabf-487a-8425-8c6539333133
+# ╠═8eaad7f0-1c6c-451b-b26b-021ec215aab6
+# ╟─d4b246c3-b7cb-454f-9618-0ef3065e2313
+# ╠═60a10e71-c981-403d-b90e-492959be98f9
+# ╟─3c5f8bef-59a0-45f8-bdc0-10d907bb962b
+# ╠═8b95dc8c-f1c3-4df6-8538-429fcd4ec21c
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
