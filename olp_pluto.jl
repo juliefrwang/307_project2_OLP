@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.25
+# v0.19.24
 
 using Markdown
 using InteractiveUtils
@@ -12,6 +12,7 @@ begin
 	using JuMP
 	using HiGHS
 	using Ipopt
+	using Statistics
 end
 
 # ╔═╡ 55286f3b-8155-4d0a-b701-576363e12b05
@@ -22,7 +23,12 @@ md"""
 
 # ╔═╡ f695e678-f507-11ed-15b9-f38c8a6c7eaf
 md"""
-# Generate iid random data
+# Generate data
+"""
+
+# ╔═╡ a433b7e0-eabc-41e4-b475-f4d46f3df8b9
+md"""
+#### iid random
 """
 
 # ╔═╡ 87e7e259-51ba-465b-ab24-c7e4d7209067
@@ -44,6 +50,29 @@ begin
 	# generate r of length n, bid from each bider j
 	r = A' * p̄ .+ sqrt(0.2) * randn(n)
 end
+
+# ╔═╡ 7de3e427-8590-4f6b-91db-bd1626012c53
+md"""
+#### AR process
+"""
+
+# ╔═╡ aa5c3253-48db-44d9-8760-372185da8d79
+begin
+	# generate r of length n, following an AR(1) process, r_2
+	l = 10000
+	r_2 = zeros(l)
+	r_2[1] = 0.5
+	r_2[2] = 0.3
+	r_2[3] = 0.4
+	# AR parameter ϕ
+	ϕ = [0.2, 0.3, 0.4]
+	for i in 4:l
+		r_2[i] = ϕ' * r_2[i-3:i-1] + rand(-1:.001:1)
+	end
+end
+
+# ╔═╡ 61a696ca-50dc-4600-8d35-005feaed8ac6
+plot(1:l, [r_2, ])
 
 # ╔═╡ 5902034c-e3d1-4b72-abce-33bbb785cfc5
 md"""
@@ -327,7 +356,12 @@ begin
 end
 
 # ╔═╡ fcca00f0-ebba-48ec-8214-d48131f9d894
-scatter(kVec, objVec, xlabel="k", ylabel="objective value")
+begin
+	scatter(kVec, objVec./
+	6608.50913559336, xlabel="k", ylabel="competitive ratio", xaxis=:log, title="competitive ratio vs k")
+	xlims!(10, 10^4)
+	ylims!(0,1)
+end
 
 # ╔═╡ ac15e428-e330-40cd-a57f-b4b5b5577c70
 objVec
@@ -414,6 +448,13 @@ JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+
+[compat]
+HiGHS = "~1.5.1"
+Ipopt = "~1.2.1"
+JuMP = "~1.10.0"
+Plots = "~1.38.10"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -422,7 +463,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.5"
 manifest_format = "2.0"
-project_hash = "bd22bca90a60edde28c290a3449e3b573ed483c6"
+project_hash = "0f84bb0c9a434db781f993585687486203050e18"
 
 [[deps.ASL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1463,7 +1504,11 @@ version = "1.4.1+0"
 # ╟─55286f3b-8155-4d0a-b701-576363e12b05
 # ╠═60795b54-151c-4597-af3c-57d3e9856de5
 # ╟─f695e678-f507-11ed-15b9-f38c8a6c7eaf
+# ╟─a433b7e0-eabc-41e4-b475-f4d46f3df8b9
 # ╠═87e7e259-51ba-465b-ab24-c7e4d7209067
+# ╟─7de3e427-8590-4f6b-91db-bd1626012c53
+# ╠═aa5c3253-48db-44d9-8760-372185da8d79
+# ╠═61a696ca-50dc-4600-8d35-005feaed8ac6
 # ╟─5902034c-e3d1-4b72-abce-33bbb785cfc5
 # ╟─7a375c87-e421-4d6b-b29b-ce8f9126b9da
 # ╟─f04b6ef1-f438-4c54-90d0-37735f211df0
