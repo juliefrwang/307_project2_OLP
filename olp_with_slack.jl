@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.25
+# v0.19.24
 
 using Markdown
 using InteractiveUtils
@@ -13,6 +13,7 @@ begin
 	using HiGHS
 	using Ipopt
 	using MadNLP
+	using Dualization
 end
 
 # ╔═╡ 640ea052-7b3e-48f2-b268-dda054a00da5
@@ -24,13 +25,13 @@ md"""
 begin
 	Random.seed!(1234) # set random seed
 	m = 10 # number of resource
-	n = 10000 # total number of bidders
+	n = 100 # total number of bidders
 	
 	# define b, total available quantity
 	b = fill(1000, m)
 	
 	# define p̄ of length m, ground truth price for each resource i
-	p̄ = randn(m)
+	p̄ = rand(m)
 	
 	# generate matrix A of shape m × n
 	# each column is the requested quantity of bidder j
@@ -40,7 +41,7 @@ begin
 	r = A' * p̄ .+ sqrt(0.2) * randn(n)
 end
 
-# ╔═╡ 8eaad7f0-1c6c-451b-b26b-021ec215aab6
+# ╔═╡ 45b6295e-2681-495b-a453-ebd5357a45f2
 w = 10
 
 # ╔═╡ d4b246c3-b7cb-454f-9618-0ef3065e2313
@@ -80,9 +81,10 @@ begin
 	    optimize!(nlpmodel)
 		
 	    # declare solution
-		@show value.(x)
+		# @show value.(x)
 		@show objective_value(nlpmodel)
-		@show value.(s)
+		# @show value.(s)
+
 	end
 	nlprimal()
 end
@@ -98,14 +100,15 @@ begin
 	#t = zeros(n)
 	#s = ones(m)
 	function nldual()
-		#nldmodel = Model(Ipopt.Optimizer)
-		nldmodel = Model(()->MadNLP.Optimizer(print_level=MadNLP.INFO, max_iter=100))
+		nldmodel = Model(Ipopt.Optimizer)
+		# nldmodel = Model(()->MadNLP.Optimizer(print_level=MadNLP.INFO, max_iter=100))
 		@variables(nldmodel, begin
-	        p[1:m] .>= 0
 	        t[1:n] .>= 0
 			l[1:m] .>= 0
 	    end)
-
+		
+		@variable(nldmodel, p[1:m], start = 1)
+		
 		@constraint(
 			 nldmodel,
              [i = 1:n],
@@ -115,29 +118,32 @@ begin
 		@NLobjective(
 			nldmodel,
 			Min,
-			sum(w/m * log(-w/(m * (-p[i] + l[i]))) for i in 1:m) -
+			sum(w/m * log(-w/(m * (-p[i] + l[i]))) for i in 1:m) - 
 			sum(p[i] * (-w/(m * (-p[i] + l[i])) - b[i]) for i in 1:m) +
 			sum(t[i] for i in 1:n) + 
 			sum(-w/(m * (-p[i] + l[i])) * l[i] for i in 1:m),
 		)
 
+
 		optimize!(nldmodel)
 		
 	    # declare solution
 		@show value.(p)
-		@show value.(t)
-		@show value.(l)
+		# @show value.(t)
+		# @show value.(l)
 		@show objective_value(nldmodel)
+		
 	end
-
 	nldual()
-
-	
 end
+
+# ╔═╡ 675bfc6a-8b91-4de4-9473-bf6da2b01866
+
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
+Dualization = "191a621a-6537-11e9-281d-650236a99e60"
 HiGHS = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"
 Ipopt = "b6b21f68-93f8-5de0-b562-5493be1d77c9"
 JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
@@ -147,6 +153,7 @@ Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [compat]
+Dualization = "~0.5.8"
 HiGHS = "~1.5.2"
 Ipopt = "~1.3.0"
 JuMP = "~1.11.1"
@@ -160,7 +167,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.5"
 manifest_format = "2.0"
-project_hash = "dd132d64ef6a895b2a16db278019e517fb14d3d6"
+project_hash = "c823db869309a2f735b36e1a31aa833e5450ff70"
 
 [[deps.AMD]]
 deps = ["Libdl", "LinearAlgebra", "SparseArrays", "Test"]
@@ -330,6 +337,12 @@ version = "0.9.3"
 deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 version = "1.6.0"
+
+[[deps.Dualization]]
+deps = ["JuMP", "LinearAlgebra", "MathOptInterface"]
+git-tree-sha1 = "4f24df471f3024a0facb94d2c2e1f362e9ce4eef"
+uuid = "191a621a-6537-11e9-281d-650236a99e60"
+version = "0.5.8"
 
 [[deps.Expat_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1282,10 +1295,11 @@ version = "1.4.1+0"
 # ╠═3dbc8b20-0024-11ee-008f-b91900ee853b
 # ╟─640ea052-7b3e-48f2-b268-dda054a00da5
 # ╠═062ed1d4-dabf-487a-8425-8c6539333133
-# ╠═8eaad7f0-1c6c-451b-b26b-021ec215aab6
+# ╠═45b6295e-2681-495b-a453-ebd5357a45f2
 # ╟─d4b246c3-b7cb-454f-9618-0ef3065e2313
 # ╠═60a10e71-c981-403d-b90e-492959be98f9
 # ╟─3c5f8bef-59a0-45f8-bdc0-10d907bb962b
 # ╠═8b95dc8c-f1c3-4df6-8538-429fcd4ec21c
+# ╠═675bfc6a-8b91-4de4-9473-bf6da2b01866
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

@@ -41,7 +41,7 @@ begin
 	b = fill(1000, m)
 	
 	# define p̄ of length m, ground truth price for each resource i
-	p̄ = randn(m)
+	p̄ = rand(m)
 	
 	# generate matrix A of shape m × n
 	# each column is the requested quantity of bidder j
@@ -363,15 +363,8 @@ begin
 	ylims!(0,1)
 end
 
-# ╔═╡ a8101952-ed44-440a-a34a-4aee08cfeb82
-begin
-	comp_ratio = []
-	for objval in objVec
-		push!(comp_ratio, objval/6608.509052769659)
-		# the 6608.50 is the optimal value for seed 1234. change this when seed is changed
-	end
-	scatter(kVec, comp_ratio, xlabel="k", ylabel="competitive ratio", ylim = (0, 1), legend = false)
-end
+# ╔═╡ ac15e428-e330-40cd-a57f-b4b5b5577c70
+objVec
 
 # ╔═╡ ec027907-b2f9-4838-9f4b-cf909f7a18a2
 md"""
@@ -445,18 +438,6 @@ begin
 	end
 	show(perror)
 end
-
-# ╔═╡ 8e090e83-7801-4213-9278-99febcdbb64c
-begin
-	push!(kk, n)
-	push!(perror, 1.9222095593820128)
-end
-
-# ╔═╡ aef6b3e1-6b27-4764-99e7-7decbc038fe6
-scatter(kk, perror, xlabel="k", ylabel="L-2 norm of p-p*",  legend = false)
-
-# ╔═╡ 22202d44-1cc1-4a38-a882-9decdddd8296
-
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1530,7 +1511,7 @@ version = "1.4.1+0"
 # ╠═61a696ca-50dc-4600-8d35-005feaed8ac6
 # ╟─5902034c-e3d1-4b72-abce-33bbb785cfc5
 # ╟─7a375c87-e421-4d6b-b29b-ce8f9126b9da
-# ╠═f04b6ef1-f438-4c54-90d0-37735f211df0
+# ╟─f04b6ef1-f438-4c54-90d0-37735f211df0
 # ╠═82c37b09-8ad2-46d4-9af6-6395eb2f7e57
 # ╟─b08f97df-37dc-4bdf-8e0b-7af63fb992eb
 # ╠═5691954b-46c1-4af5-9325-11a022dcd1a1
@@ -1552,7 +1533,7 @@ version = "1.4.1+0"
 # ╟─dc263218-108a-495a-bb85-52b9aff2d5ae
 # ╠═34c23a67-5ef0-4b46-8e84-e30e79aa126d
 # ╠═fcca00f0-ebba-48ec-8214-d48131f9d894
-# ╠═a8101952-ed44-440a-a34a-4aee08cfeb82
+# ╠═ac15e428-e330-40cd-a57f-b4b5b5577c70
 # ╟─ec027907-b2f9-4838-9f4b-cf909f7a18a2
 # ╠═711da709-1eee-45dd-abae-de67f8b1511e
 # ╟─85250945-a89c-46b5-9d93-46c248f044b1
@@ -1560,8 +1541,5 @@ version = "1.4.1+0"
 # ╠═696df271-d03a-42b9-b7e8-545a6706ce5d
 # ╠═bb3d2c90-8169-4126-a8ae-10bab6a39839
 # ╠═002e43d3-e717-4666-bbd4-db3fd27f2150
-# ╠═8e090e83-7801-4213-9278-99febcdbb64c
-# ╠═aef6b3e1-6b27-4764-99e7-7decbc038fe6
-# ╠═22202d44-1cc1-4a38-a882-9decdddd8296
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
