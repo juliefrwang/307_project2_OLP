@@ -48,31 +48,8 @@ begin
 	A = rand([0, 1], m, n)
 	
 	# generate r of length n, bid from each bider j
-	r = A' * p̄ .+ sqrt(0.2) * randn(n)
+	r = A' * p̄ + sqrt(0.2) * randn(n)
 end
-
-# ╔═╡ 7de3e427-8590-4f6b-91db-bd1626012c53
-md"""
-#### AR process
-"""
-
-# ╔═╡ aa5c3253-48db-44d9-8760-372185da8d79
-begin
-	# generate r of length n, following an AR(1) process, r_2
-	l = 10000
-	r_2 = zeros(l)
-	r_2[1] = 0.5
-	r_2[2] = 0.3
-	r_2[3] = 0.4
-	# AR parameter ϕ
-	ϕ = [0.2, 0.3, 0.4]
-	for i in 4:l
-		r_2[i] = ϕ' * r_2[i-3:i-1] + rand(-1:.001:1)
-	end
-end
-
-# ╔═╡ 61a696ca-50dc-4600-8d35-005feaed8ac6
-plot(1:l, [r_2, ])
 
 # ╔═╡ 5902034c-e3d1-4b72-abce-33bbb785cfc5
 md"""
@@ -135,6 +112,7 @@ let
     # declare solution
 	@show value.(x)
 	@show objective_value(lpmodel)
+	obj = objective_value(lpmodel)
 end
 
 # ╔═╡ b08f97df-37dc-4bdf-8e0b-7af63fb992eb
@@ -347,7 +325,7 @@ begin
 	objVec = []
 	kVec = []
 	k = 25
-	while k <= 10000
+	while k <= n
 		lpmodel_ = Model(Ipopt.Optimizer)
 		push!(objVec, oneTimeOlp(lpmodel_, k, A, b, r, n))
 		push!(kVec, k)
@@ -375,7 +353,7 @@ The objective value should be the same as the offline model.
 # ╔═╡ 711da709-1eee-45dd-abae-de67f8b1511e
 begin
 	lpmodel_10000 = Model(Ipopt.Optimizer)
-	oneTimeOlp(lpmodel_10000, 10000, A, b, r, n)
+	oneTimeOlp(lpmodel_10000, n, A, b, r, n)
 end
 
 # ╔═╡ 85250945-a89c-46b5-9d93-46c248f044b1
@@ -385,7 +363,7 @@ Now let us dynamically update the dual prices at time points k = 50, 100, 200, 4
 """
 
 # ╔═╡ 93d49d09-2fd2-4544-ad9f-aaaba3175c83
-	p_matrix = zeros(m, Int(ceil(log2(n/50))))
+p_matrix = zeros(m, Int(floor(log2(n/50))+1))
 
 # ╔═╡ 696df271-d03a-42b9-b7e8-545a6706ce5d
 function oneTimeOlpDynamic(model, k, A, b, r, n, p_matrix)
@@ -406,7 +384,7 @@ function oneTimeOlpDynamic(model, k, A, b, r, n, p_matrix)
 			p_matrix[:,idx] = p̄_d
 		end
 		
-        if r[j] > A[:,j]' * p̄_d && A[:,j] * x[j] ≤ b - A * x
+        if r[j] > A[:,j]' * p̄_d && all(A[:,j] * x[j] .≤ b - A * x)
         	x[j] = 1
 	    else
 	        x[j] = 0
@@ -418,21 +396,14 @@ end
 
 # ╔═╡ bb3d2c90-8169-4126-a8ae-10bab6a39839
 begin
-	objVec_d = []
-
-	
 	kk = [Int(50 * 2^i) for i in 0:log2(n/50)]
-	#kk = [50, 100, 200, 400, 800, 1600]
 	lpmodel_d = [Model(Ipopt.Optimizer) for i in 0:log2(n/50)]
-	# lpmodel_d = [Model(Ipopt.Optimizer), Model(Ipopt.Optimizer), Model(Ipopt.Optimizer), Model(Ipopt.Optimizer), Model(Ipopt.Optimizer), Model(Ipopt.Optimizer)]
-	
-	# push!(objVec_d, oneTimeOlpDynamic(lpmodel_d, kk, A, b, r, n))
 	res = oneTimeOlpDynamic(lpmodel_d, kk, A, b, r, n, p_matrix)
 end
 
 # ╔═╡ 002e43d3-e717-4666-bbd4-db3fd27f2150
 begin
-	perror = zeros(Int(ceil(log2(n/50))))
+	perror = zeros(Int(floor(log2(n/50))+1))
 	for i = 1:Int(ceil(log2(n/50)))
 		perror[i] = norm(p_matrix[:, i] - p̄, 2)
 	end
@@ -469,7 +440,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.5"
 manifest_format = "2.0"
-project_hash = "0f84bb0c9a434db781f993585687486203050e18"
+project_hash = "760b4593015a1a1d1df4d4a5cb1fe295b39ab1b2"
 
 [[deps.ASL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1512,9 +1483,6 @@ version = "1.4.1+0"
 # ╟─f695e678-f507-11ed-15b9-f38c8a6c7eaf
 # ╟─a433b7e0-eabc-41e4-b475-f4d46f3df8b9
 # ╠═87e7e259-51ba-465b-ab24-c7e4d7209067
-# ╟─7de3e427-8590-4f6b-91db-bd1626012c53
-# ╠═aa5c3253-48db-44d9-8760-372185da8d79
-# ╠═61a696ca-50dc-4600-8d35-005feaed8ac6
 # ╟─5902034c-e3d1-4b72-abce-33bbb785cfc5
 # ╟─7a375c87-e421-4d6b-b29b-ce8f9126b9da
 # ╟─f04b6ef1-f438-4c54-90d0-37735f211df0
