@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.25
+# v0.19.24
 
 using Markdown
 using InteractiveUtils
@@ -404,7 +404,7 @@ end
 # ╔═╡ 002e43d3-e717-4666-bbd4-db3fd27f2150
 begin
 	perror = zeros(Int(floor(log2(n/50))+1))
-	for i = 1:Int(ceil(log2(n/50)))
+	for i = 1:Int(floor(log2(n/50))+1)
 		perror[i] = norm(p_matrix[:, i] - p̄, 2)
 	end
 end
