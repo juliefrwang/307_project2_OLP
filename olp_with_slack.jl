@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.25
+# v0.19.24
 
 using Markdown
 using InteractiveUtils
@@ -13,7 +13,6 @@ begin
 	using HiGHS
 	using Ipopt
 	using MadNLP
-	using Dualization
 end
 
 # ╔═╡ 640ea052-7b3e-48f2-b268-dda054a00da5
@@ -42,7 +41,7 @@ begin
 end
 
 # ╔═╡ 45b6295e-2681-495b-a453-ebd5357a45f2
-w = 0.000001
+w = 1e-2
 
 # ╔═╡ d4b246c3-b7cb-454f-9618-0ef3065e2313
 md"""
@@ -81,14 +80,13 @@ begin
 	    optimize!(nlpmodel)
 		
 	    # declare solution
-		# @show value.(x)
+		@show sum(value.(x))
 		@show objective_value(nlpmodel)
 		# @show value.(s)
-		@show value.(r' * x)
-		#@show A
-
+		# @show A
+		return r' * value.(x)
 	end
-	nlprimal()
+	primal_obj_value = nlprimal()
 end
 
 # ╔═╡ 3c5f8bef-59a0-45f8-bdc0-10d907bb962b
@@ -150,7 +148,6 @@ begin
 		@variables(nldmodel, begin
 	        t[1:n] .>= 0
 			l[1:m] .>= 0
-			 
 	    end)
 		
 		@variable(nldmodel, p[1:m] .>= 0, start = 1) # for online problem we only ask for inequality 
@@ -197,14 +194,14 @@ function oneTimeOlp(model, k, A, b, r, n)
 	p̄ = solveOlpDual(model, k, A, b, r, n)
 	# condition
     for j in k+1:n
-		# if r[j] > A[:,j]' * p̄ && A[:,j] * x[j] ≤ b - A * x
-        if (r[j] > A[:,j]' * p̄) && all(A[:,j] * 1 < b - A * x)
+        if (r[j] > A[:,j]' * p̄) && all(A[:,j] * 1 .< b - A * x)
         	x[j] = 1
 	    else
 	        x[j] = 0
 	    end
     end
 	# objective value of primal 
+	show(p̄)
 	show(sum(x))
 	show(A*x - b)
 	return r' * x 
@@ -286,8 +283,7 @@ end
 
 # ╔═╡ fbccc397-9ab8-4b88-b5e1-f685a8b44da9
 begin
-	scatter(kVec, objVec./
-	7290.4725489482125, xlabel="k", ylabel="competitive ratio", xaxis=:log, title="competitive ratio vs k")
+	scatter(kVec, objVec./primal_obj_value, xlabel="k", ylabel="competitive ratio", xaxis=:log, title="competitive ratio vs k")
 	xlims!(10, 10^4)
 	ylims!(0,1)
 end
@@ -340,7 +336,7 @@ end
 # ╔═╡ bccc30fd-fcde-4c35-a8ce-a9e817346fbb
 begin
 	perror = zeros(Int(floor(log2(n/50))+1))
-	for i = 1:Int(ceil(log2(n/50)))
+	for i = 1:Int(floor(log2(n/50))+1)
 		perror[i] = norm(p_matrix[:, i] - p̄, 2)
 		#show(p_matrix[:, i])
 	end
@@ -356,7 +352,6 @@ end
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
-Dualization = "191a621a-6537-11e9-281d-650236a99e60"
 HiGHS = "87dc4568-4c63-4d18-b0c0-bb2238e4078b"
 Ipopt = "b6b21f68-93f8-5de0-b562-5493be1d77c9"
 JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
@@ -366,7 +361,6 @@ Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [compat]
-Dualization = "~0.5.8"
 HiGHS = "~1.5.2"
 Ipopt = "~1.3.0"
 JuMP = "~1.11.1"
@@ -380,7 +374,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.5"
 manifest_format = "2.0"
-project_hash = "33d77d281cfe0056a5928d6640d7c0404eeda57d"
+project_hash = "dd132d64ef6a895b2a16db278019e517fb14d3d6"
 
 [[deps.AMD]]
 deps = ["Libdl", "LinearAlgebra", "SparseArrays", "Test"]
@@ -550,12 +544,6 @@ version = "0.9.3"
 deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 version = "1.6.0"
-
-[[deps.Dualization]]
-deps = ["JuMP", "LinearAlgebra", "MathOptInterface"]
-git-tree-sha1 = "4f24df471f3024a0facb94d2c2e1f362e9ce4eef"
-uuid = "191a621a-6537-11e9-281d-650236a99e60"
-version = "0.5.8"
 
 [[deps.Expat_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
