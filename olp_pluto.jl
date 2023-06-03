@@ -409,9 +409,12 @@ begin
 	end
 end
 
+# ╔═╡ cff4a67a-9cdd-4be7-b861-599a1df00208
+perror
+
 # ╔═╡ 5271a54b-0a02-44a5-8f59-a2872f2ef107
 begin
-	scatter(kVec, perror, xlabel="k", ylabel="L₂-norm of p error", xaxis=:log, title="L₂-norm of p error vs k")
+	scatter(kk, perror, xlabel="k", ylabel="L₂-norm of p error", xaxis=:log, title="L₂-norm of p error vs k")
 	xlims!(10, 10^4)
 	ylims!(0.2,0.8)
 end
@@ -1515,6 +1518,7 @@ version = "1.4.1+0"
 # ╠═696df271-d03a-42b9-b7e8-545a6706ce5d
 # ╠═bb3d2c90-8169-4126-a8ae-10bab6a39839
 # ╠═002e43d3-e717-4666-bbd4-db3fd27f2150
+# ╠═cff4a67a-9cdd-4be7-b861-599a1df00208
 # ╠═5271a54b-0a02-44a5-8f59-a2872f2ef107
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

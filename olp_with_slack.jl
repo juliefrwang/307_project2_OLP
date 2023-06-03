@@ -42,7 +42,7 @@ begin
 end
 
 # ╔═╡ 45b6295e-2681-495b-a453-ebd5357a45f2
-w = 1000
+w = 0.000001
 
 # ╔═╡ d4b246c3-b7cb-454f-9618-0ef3065e2313
 md"""
@@ -150,9 +150,10 @@ begin
 		@variables(nldmodel, begin
 	        t[1:n] .>= 0
 			l[1:m] .>= 0
+			 
 	    end)
 		
-		@variable(nldmodel, p[1:m], start = 1)
+		@variable(nldmodel, p[1:m] .>= 0, start = 1) # for online problem we only ask for inequality 
 		
 		@constraint(
 			 nldmodel,
@@ -163,8 +164,8 @@ begin
 		@NLobjective(
 			nldmodel,
 			Min,
-			sum(w/m * log(-w/(m * (-p[i] + l[i]))) for i in 1:m) - 
-			sum(p[i] * (-w/(m * (-p[i] + l[i])) - k / n * b[i]) for i in 1:m) +
+			sum(w/m * log(-w/(m * (- p[i] + l[i]))) for i in 1:m) - 
+			sum(p[i] * (-w/(m * (- p[i] + l[i])) - k / n * b[i]) for i in 1:m) +
 			sum(t[i] for i in 1:n) + 
 			sum(-w/(m * (-p[i] + l[i])) * l[i] for i in 1:m),
 		)
@@ -336,26 +337,20 @@ begin
 	res = oneTimeOlpDynamic(lpmodel_d, kk, A, b, r, n, p_matrix)
 end
 
-# ╔═╡ fef19ca8-8ceb-4d02-b446-0ae1cee165ec
-show(p̄)
-
 # ╔═╡ bccc30fd-fcde-4c35-a8ce-a9e817346fbb
 begin
 	perror = zeros(Int(floor(log2(n/50))+1))
 	for i = 1:Int(ceil(log2(n/50)))
 		perror[i] = norm(p_matrix[:, i] - p̄, 2)
-		show(p_matrix[:, i])
+		#show(p_matrix[:, i])
 	end
 end
 
-# ╔═╡ 6d074dea-83c8-4c6e-9c1a-69dc631c3ee6
-
-
 # ╔═╡ 4ecddb99-d904-4c97-821b-605a5a97c483
 begin
-	scatter(kVec, perror, xlabel="k", ylabel="L₂-norm of p error", xaxis=:log, title="L₂-norm of p error vs k")
+	scatter(kk, perror, xlabel="k", ylabel="L₂-norm of p error", xaxis=:log, title="L₂-norm of p error vs k")
 	xlims!(10, 10^4)
-	ylims!(0.2,1.7)
+	#ylims!(0.2,3)
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -1525,23 +1520,21 @@ version = "1.4.1+0"
 # ╟─d21e6f25-f04b-4271-b857-ae52cde22d62
 # ╟─096470e9-843a-4b5a-92b3-c576ac73b2c1
 # ╟─f7005be6-2df1-49b8-9eef-893ffa4691b8
-# ╠═db97049d-1fbc-4e14-9675-be3e644dc182
+# ╟─db97049d-1fbc-4e14-9675-be3e644dc182
 # ╟─c0ea8f9c-16ae-4308-a079-b3f69df1d65f
-# ╠═60b64392-08c4-4924-95fe-902c7eafb60a
-# ╠═eaf91926-2b3e-497b-b410-dcecc0c1a001
+# ╟─60b64392-08c4-4924-95fe-902c7eafb60a
+# ╟─eaf91926-2b3e-497b-b410-dcecc0c1a001
 # ╠═040cfadd-fc47-41a3-9bbb-fb34bc93fbf0
 # ╟─3c8cefbb-58dc-4cd7-9c9d-dfdf8176b7b1
 # ╠═e5ea0f8e-b42a-493b-8607-131aeff24351
-# ╠═8bf08eb2-f8a9-4f36-a69c-dba1816bf936
+# ╟─8bf08eb2-f8a9-4f36-a69c-dba1816bf936
 # ╠═99bca798-52a7-494f-86ce-108d704888f2
 # ╠═fbccc397-9ab8-4b88-b5e1-f685a8b44da9
-# ╠═7e15b633-fb7c-44c4-83ae-2671e7599697
+# ╟─7e15b633-fb7c-44c4-83ae-2671e7599697
 # ╠═40238f11-bfb9-482c-bc4c-c1ebe363781f
 # ╠═1280e997-31c9-4708-b4c2-021bd4fa5d3d
 # ╠═693aeaca-7543-416d-8177-e78b9e814f29
-# ╠═fef19ca8-8ceb-4d02-b446-0ae1cee165ec
 # ╠═bccc30fd-fcde-4c35-a8ce-a9e817346fbb
-# ╠═6d074dea-83c8-4c6e-9c1a-69dc631c3ee6
 # ╠═4ecddb99-d904-4c97-821b-605a5a97c483
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
