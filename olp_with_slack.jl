@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.24
+# v0.19.25
 
 using Markdown
 using InteractiveUtils
@@ -25,7 +25,7 @@ md"""
 begin
 	Random.seed!(1234) # set random seed
 	m = 10 # number of resource
-	n = 100 # total number of bidders
+	n = 10000 # total number of bidders
 	
 	# define b, total available quantity
 	b = fill(1000, m)
@@ -42,7 +42,7 @@ begin
 end
 
 # ╔═╡ 45b6295e-2681-495b-a453-ebd5357a45f2
-w = 10
+w = 1000
 
 # ╔═╡ d4b246c3-b7cb-454f-9618-0ef3065e2313
 md"""
@@ -71,7 +71,7 @@ begin
 		@NLobjective(nlpmodel, 
 					Max, 
 					# r' * x + w / m * sum(sin(s[i]) for i in 1:m),)
-					sum(sin(s[i]) for i in 1:m) * w / m + 
+					sum(log(s[i]) for i in 1:m) * w / m + 
 					sum(r[j] * x[j] for j in 1:n), )
 		
 		# Print Model
@@ -84,6 +84,8 @@ begin
 		# @show value.(x)
 		@show objective_value(nlpmodel)
 		# @show value.(s)
+		@show value.(r' * x)
+		#@show A
 
 	end
 	nlprimal()
@@ -96,9 +98,6 @@ md"""
 
 # ╔═╡ 8b95dc8c-f1c3-4df6-8538-429fcd4ec21c
 begin
-	#l = zeros(m)
-	#t = zeros(n)
-	#s = ones(m)
 	function nldual()
 		nldmodel = Model(Ipopt.Optimizer)
 		# nldmodel = Model(()->MadNLP.Optimizer(print_level=MadNLP.INFO, max_iter=100))
@@ -138,7 +137,226 @@ begin
 end
 
 # ╔═╡ 675bfc6a-8b91-4de4-9473-bf6da2b01866
+md"""
+# Solve Online Dual
+"""
 
+
+# ╔═╡ 6010e788-b8a9-48b5-9efc-0c508ab89e37
+begin
+	function solveOlpDual(nldmodel, k, A, b, r, n)
+
+		# nldmodel = Model(()->MadNLP.Optimizer(print_level=MadNLP.INFO, max_iter=100))
+		@variables(nldmodel, begin
+	        t[1:n] .>= 0
+			l[1:m] .>= 0
+	    end)
+		
+		@variable(nldmodel, p[1:m], start = 1)
+		
+		@constraint(
+			 nldmodel,
+             [i = 1:n],
+			 r[i] - t[i] - A[:, i]' * p <= 0,
+		)
+
+		@NLobjective(
+			nldmodel,
+			Min,
+			sum(w/m * log(-w/(m * (-p[i] + l[i]))) for i in 1:m) - 
+			sum(p[i] * (-w/(m * (-p[i] + l[i])) - k / n * b[i]) for i in 1:m) +
+			sum(t[i] for i in 1:n) + 
+			sum(-w/(m * (-p[i] + l[i])) * l[i] for i in 1:m),
+		)
+
+
+		optimize!(nldmodel)
+		
+	    # declare solution
+		
+		# @show value.(t)
+		# @show value.(l)
+		@show objective_value(nldmodel)
+		return value.(p)
+	end
+end
+
+# ╔═╡ 1136d632-2e44-45ee-8de2-0333cd9f5268
+md"""
+# One-time OLP
+"""
+
+# ╔═╡ 5d29a0b6-67d8-4c8f-b2d6-1dc97504ce13
+function oneTimeOlp(model, k, A, b, r, n)
+	# initialize x for all n
+	x = zeros(n)
+	# Solve x up to k
+
+	# Solve fixed dual price p̄ 
+	p̄ = solveOlpDual(model, k, A, b, r, n)
+	# condition
+    for j in k+1:n
+		# if r[j] > A[:,j]' * p̄ && A[:,j] * x[j] ≤ b - A * x
+        if (r[j] > A[:,j]' * p̄) && all(A[:,j] * 1 < b - A * x)
+        	x[j] = 1
+	    else
+	        x[j] = 0
+	    end
+    end
+	# objective value of primal 
+	show(sum(x))
+	show(A*x - b)
+	return r' * x 
+
+end
+
+# ╔═╡ d21e6f25-f04b-4271-b857-ae52cde22d62
+md"""
+# Questions
+"""
+
+# ╔═╡ 096470e9-843a-4b5a-92b3-c576ac73b2c1
+md"""
+### Question 1: 
+Let n = 10, 000. Then run the one-time online learning (SLPM) algorithm using the same simulated bidding data above based on three different sizes of k = 50, 100, 200 to see how sensitive the ratio of the generated revenue over the offline revenue is to k. Note that we keep the estimated prices $\bar{y}^k$ __fixed__ in this case. What is the trade-off between choosing large and small k?
+"""
+
+# ╔═╡ f7005be6-2df1-49b8-9eef-893ffa4691b8
+md"""
+##### k = 25
+"""
+
+# ╔═╡ db97049d-1fbc-4e14-9675-be3e644dc182
+begin
+	lpmodel_25 = Model(Ipopt.Optimizer)
+	oneTimeOlp(lpmodel_25, 25, A, b, r, n)
+end
+
+# ╔═╡ c0ea8f9c-16ae-4308-a079-b3f69df1d65f
+md"""
+##### k = 50
+"""
+
+# ╔═╡ 60b64392-08c4-4924-95fe-902c7eafb60a
+begin
+	lpmodel_50 = Model(Ipopt.Optimizer)
+	oneTimeOlp(lpmodel_50, 50, A, b, r, n)
+end
+
+# ╔═╡ eaf91926-2b3e-497b-b410-dcecc0c1a001
+md"""
+##### k = 100
+"""
+
+# ╔═╡ 040cfadd-fc47-41a3-9bbb-fb34bc93fbf0
+begin
+	lpmodel_100 = Model(Ipopt.Optimizer)
+	oneTimeOlp(lpmodel_100, 100, A, b, r, n)
+end
+
+# ╔═╡ 3c8cefbb-58dc-4cd7-9c9d-dfdf8176b7b1
+md"""
+##### k = 200
+"""
+
+# ╔═╡ e5ea0f8e-b42a-493b-8607-131aeff24351
+begin
+	lpmodel_200 = Model(Ipopt.Optimizer)
+	oneTimeOlp(lpmodel_200, 200, A, b, r, n)
+end
+
+# ╔═╡ 8bf08eb2-f8a9-4f36-a69c-dba1816bf936
+md"""
+#### Try more k!
+"""
+
+# ╔═╡ 99bca798-52a7-494f-86ce-108d704888f2
+begin
+	objVec = []
+	kVec = []
+	k = 25
+	while k <= n
+		lpmodel_ = Model(Ipopt.Optimizer)
+		push!(objVec, oneTimeOlp(lpmodel_, k, A, b, r, n))
+		push!(kVec, k)
+		k *= 2
+	end
+end
+
+# ╔═╡ fbccc397-9ab8-4b88-b5e1-f685a8b44da9
+begin
+	scatter(kVec, objVec./
+	7290.4725489482125, xlabel="k", ylabel="competitive ratio", xaxis=:log, title="competitive ratio vs k")
+	xlims!(10, 10^4)
+	ylims!(0,1)
+end
+
+# ╔═╡ 7e15b633-fb7c-44c4-83ae-2671e7599697
+md"""
+### Question 2: 
+Now let us dynamically update the dual prices at time points k = 50, 100, 200, 400, 800... and use the prices to make decision for the immediate subsequent period. How does the dynamic learning perform on the revenue? Do the dual price vectors $\bar{y}^k$ generated from the online LP model approach the ground truth vector $\bar{p} > 0$? Explain your observations and findings. Again, use the same data generated in Question 1.
+"""
+
+# ╔═╡ 40238f11-bfb9-482c-bc4c-c1ebe363781f
+p_matrix = zeros(m, Int(floor(log2(n/50))+1))
+
+# ╔═╡ 1280e997-31c9-4708-b4c2-021bd4fa5d3d
+function oneTimeOlpDynamic(model, k, A, b, r, n, p_matrix)
+	# initialize x for all n
+	x = zeros(n)
+	# Solve x up to k
+	idx = 1
+
+	# Solve fixed dual price p̄ 
+	p̄_d = solveOlpDual(model[1], k[1], A, b, r, n)
+	p_matrix[:,1] = p̄_d
+	# condition
+    for j in k[1]+1:n
+
+		if j in k
+			idx += 1
+			p̄_d = solveOlpDual(model[idx], j, A, b, r, n)
+			p_matrix[:,idx] = p̄_d
+		end
+		
+        if r[j] > A[:,j]' * p̄_d && all(A[:,j] * x[j] .≤ b - A * x)
+        	x[j] = 1
+	    else
+	        x[j] = 0
+	    end
+    end
+	# objective value of primal 
+	return r' * x 
+end
+
+# ╔═╡ 693aeaca-7543-416d-8177-e78b9e814f29
+begin
+	kk = [Int(50 * 2^i) for i in 0:log2(n/50)]
+	lpmodel_d = [Model(Ipopt.Optimizer) for i in 0:log2(n/50)]
+	res = oneTimeOlpDynamic(lpmodel_d, kk, A, b, r, n, p_matrix)
+end
+
+# ╔═╡ fef19ca8-8ceb-4d02-b446-0ae1cee165ec
+show(p̄)
+
+# ╔═╡ bccc30fd-fcde-4c35-a8ce-a9e817346fbb
+begin
+	perror = zeros(Int(floor(log2(n/50))+1))
+	for i = 1:Int(ceil(log2(n/50)))
+		perror[i] = norm(p_matrix[:, i] - p̄, 2)
+		show(p_matrix[:, i])
+	end
+end
+
+# ╔═╡ 6d074dea-83c8-4c6e-9c1a-69dc631c3ee6
+
+
+# ╔═╡ 4ecddb99-d904-4c97-821b-605a5a97c483
+begin
+	scatter(kVec, perror, xlabel="k", ylabel="L₂-norm of p error", xaxis=:log, title="L₂-norm of p error vs k")
+	xlims!(10, 10^4)
+	ylims!(0.2,1.7)
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -167,7 +385,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.5"
 manifest_format = "2.0"
-project_hash = "c823db869309a2f735b36e1a31aa833e5450ff70"
+project_hash = "33d77d281cfe0056a5928d6640d7c0404eeda57d"
 
 [[deps.AMD]]
 deps = ["Libdl", "LinearAlgebra", "SparseArrays", "Test"]
@@ -1300,6 +1518,30 @@ version = "1.4.1+0"
 # ╠═60a10e71-c981-403d-b90e-492959be98f9
 # ╟─3c5f8bef-59a0-45f8-bdc0-10d907bb962b
 # ╠═8b95dc8c-f1c3-4df6-8538-429fcd4ec21c
-# ╠═675bfc6a-8b91-4de4-9473-bf6da2b01866
+# ╟─675bfc6a-8b91-4de4-9473-bf6da2b01866
+# ╠═6010e788-b8a9-48b5-9efc-0c508ab89e37
+# ╟─1136d632-2e44-45ee-8de2-0333cd9f5268
+# ╠═5d29a0b6-67d8-4c8f-b2d6-1dc97504ce13
+# ╟─d21e6f25-f04b-4271-b857-ae52cde22d62
+# ╟─096470e9-843a-4b5a-92b3-c576ac73b2c1
+# ╟─f7005be6-2df1-49b8-9eef-893ffa4691b8
+# ╠═db97049d-1fbc-4e14-9675-be3e644dc182
+# ╟─c0ea8f9c-16ae-4308-a079-b3f69df1d65f
+# ╠═60b64392-08c4-4924-95fe-902c7eafb60a
+# ╠═eaf91926-2b3e-497b-b410-dcecc0c1a001
+# ╠═040cfadd-fc47-41a3-9bbb-fb34bc93fbf0
+# ╟─3c8cefbb-58dc-4cd7-9c9d-dfdf8176b7b1
+# ╠═e5ea0f8e-b42a-493b-8607-131aeff24351
+# ╠═8bf08eb2-f8a9-4f36-a69c-dba1816bf936
+# ╠═99bca798-52a7-494f-86ce-108d704888f2
+# ╠═fbccc397-9ab8-4b88-b5e1-f685a8b44da9
+# ╠═7e15b633-fb7c-44c4-83ae-2671e7599697
+# ╠═40238f11-bfb9-482c-bc4c-c1ebe363781f
+# ╠═1280e997-31c9-4708-b4c2-021bd4fa5d3d
+# ╠═693aeaca-7543-416d-8177-e78b9e814f29
+# ╠═fef19ca8-8ceb-4d02-b446-0ae1cee165ec
+# ╠═bccc30fd-fcde-4c35-a8ce-a9e817346fbb
+# ╠═6d074dea-83c8-4c6e-9c1a-69dc631c3ee6
+# ╠═4ecddb99-d904-4c97-821b-605a5a97c483
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

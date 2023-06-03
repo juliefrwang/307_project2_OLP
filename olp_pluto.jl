@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.24
+# v0.19.25
 
 using Markdown
 using InteractiveUtils
@@ -1480,7 +1480,7 @@ version = "1.4.1+0"
 # ╔═╡ Cell order:
 # ╟─55286f3b-8155-4d0a-b701-576363e12b05
 # ╠═60795b54-151c-4597-af3c-57d3e9856de5
-# ╟─f695e678-f507-11ed-15b9-f38c8a6c7eaf
+# ╠═f695e678-f507-11ed-15b9-f38c8a6c7eaf
 # ╟─a433b7e0-eabc-41e4-b475-f4d46f3df8b9
 # ╠═87e7e259-51ba-465b-ab24-c7e4d7209067
 # ╟─5902034c-e3d1-4b72-abce-33bbb785cfc5
@@ -1492,25 +1492,25 @@ version = "1.4.1+0"
 # ╟─d1bf6e84-260d-4811-ad21-85acb2f9d5a6
 # ╠═2fe22bb2-3c79-4a6a-97b6-4be7d8fc884d
 # ╠═6cec47fa-026f-40d6-bdca-956e0323faf2
-# ╟─a321e640-aafe-406d-aa6b-a6cc1e888c95
+# ╠═a321e640-aafe-406d-aa6b-a6cc1e888c95
 # ╠═c8d75e0d-6ca5-4bdd-b696-83dd9935762a
-# ╟─3e1206e4-7cfe-4c4d-8981-1dac4302ba5b
-# ╟─ddd18d8c-4f4d-4f9c-9958-a44a95432af1
+# ╠═3e1206e4-7cfe-4c4d-8981-1dac4302ba5b
+# ╠═ddd18d8c-4f4d-4f9c-9958-a44a95432af1
 # ╟─5ed7af3d-9bc3-43f0-a69c-b4a2ebe9f14b
 # ╠═43e4fb45-00e9-4a0e-aa8f-1c4667f20342
-# ╟─48d8e218-59fb-4cb0-9240-8dd640d5be0b
+# ╠═48d8e218-59fb-4cb0-9240-8dd640d5be0b
 # ╠═2d968288-5c45-4aec-9f27-27fc21f71e46
 # ╟─3f774e11-0b47-43b9-89a1-bc208c1bdbf2
 # ╠═f6d2bca3-7da7-49f3-aaa6-7e468e7c51cb
 # ╟─0ad1df2a-f582-451b-92d9-b12950bf3394
 # ╠═0dad607b-e52d-48b9-80bc-96e1ad487811
-# ╟─dc263218-108a-495a-bb85-52b9aff2d5ae
+# ╠═dc263218-108a-495a-bb85-52b9aff2d5ae
 # ╠═34c23a67-5ef0-4b46-8e84-e30e79aa126d
 # ╠═fcca00f0-ebba-48ec-8214-d48131f9d894
 # ╠═ac15e428-e330-40cd-a57f-b4b5b5577c70
 # ╟─ec027907-b2f9-4838-9f4b-cf909f7a18a2
 # ╠═711da709-1eee-45dd-abae-de67f8b1511e
-# ╟─85250945-a89c-46b5-9d93-46c248f044b1
+# ╠═85250945-a89c-46b5-9d93-46c248f044b1
 # ╠═93d49d09-2fd2-4544-ad9f-aaaba3175c83
 # ╠═696df271-d03a-42b9-b7e8-545a6706ce5d
 # ╠═bb3d2c90-8169-4126-a8ae-10bab6a39839
