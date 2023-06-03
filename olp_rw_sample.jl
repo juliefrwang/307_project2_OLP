@@ -43,18 +43,21 @@ begin
 	# generate r of length n
 	r = zeros(n);
 	for i in 2:n
-		r[i] = r[i-1] + randn()
+		r[i] = r[i-1] + randn() + 2
 	end
 	
 	# generate matrix A of shape m × n
 	A = zeros(m,n)
 	for j in 2:n
-		A[:,j] = A[:,j-1] + randn(m,1)
+		A[:,j] = A[:,j-1] + randn(m, 1) + fill(2, m)
 	end
 
 	# define p̄ of length m, ground truth price for each resource i
-	p̄  = A' \ r + sqrt(0.2) * randn(m)
+	p̄  = A' \ r #+ sqrt(0.2) * randn(m) 
 end
+
+# ╔═╡ 31de5872-60a3-4cd1-b5d8-9b218dfb6c30
+p̄
 
 # ╔═╡ 5902034c-e3d1-4b72-abce-33bbb785cfc5
 md"""
@@ -117,7 +120,7 @@ begin
 	    optimize!(lpmodel)
 		
 	    # declare solution
-		@show sum(value.(x))
+		# @show value.(x)
 		primal_obj_value = objective_value(lpmodel)
 		@show primal_obj_value
 	end
@@ -155,7 +158,7 @@ let
 	
     # declare solution
 	@show value.(p)
-	@show value.(y)
+	# @show value.(y)
 	@show objective_value(lpmodel_dual)
 end
 
@@ -1484,8 +1487,9 @@ version = "1.4.1+0"
 # ╠═55286f3b-8155-4d0a-b701-576363e12b05
 # ╠═60795b54-151c-4597-af3c-57d3e9856de5
 # ╟─f695e678-f507-11ed-15b9-f38c8a6c7eaf
-# ╠═a433b7e0-eabc-41e4-b475-f4d46f3df8b9
+# ╟─a433b7e0-eabc-41e4-b475-f4d46f3df8b9
 # ╠═87e7e259-51ba-465b-ab24-c7e4d7209067
+# ╠═31de5872-60a3-4cd1-b5d8-9b218dfb6c30
 # ╟─5902034c-e3d1-4b72-abce-33bbb785cfc5
 # ╟─7a375c87-e421-4d6b-b29b-ce8f9126b9da
 # ╟─f04b6ef1-f438-4c54-90d0-37735f211df0
