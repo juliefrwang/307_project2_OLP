@@ -46,6 +46,7 @@ begin
 	# generate matrix A of shape m × n
 	# each column is the requested quantity of bidder j
 	A = rand([0, 1], m, n)
+	# A = abs.(randn(m,n))
 	
 	# generate r of length n, bid from each bider j
 	r = A' * p̄ + sqrt(0.2) * randn(n)
@@ -88,6 +89,8 @@ md"""
 """
 
 # ╔═╡ 82c37b09-8ad2-46d4-9af6-6395eb2f7e57
+begin
+	primal_obj_value = 0
 let
     # Model and Solver
 	lpmodel = Model(Ipopt.Optimizer)
@@ -112,7 +115,8 @@ let
     # declare solution
 	@show value.(x)
 	@show objective_value(lpmodel)
-	obj = objective_value(lpmodel)
+	primal_obj_value = objective_value(lpmodel)
+end
 end
 
 # ╔═╡ b08f97df-37dc-4bdf-8e0b-7af63fb992eb
@@ -333,14 +337,6 @@ begin
 	end
 end
 
-# ╔═╡ fcca00f0-ebba-48ec-8214-d48131f9d894
-begin
-	scatter(kVec, objVec./
-	6608.50913559336, xlabel="k", ylabel="competitive ratio", xaxis=:log, title="competitive ratio vs k")
-	xlims!(10, 10^4)
-	ylims!(0,1)
-end
-
 # ╔═╡ ac15e428-e330-40cd-a57f-b4b5b5577c70
 objVec
 
@@ -384,7 +380,7 @@ function oneTimeOlpDynamic(model, k, A, b, r, n, p_matrix)
 			p_matrix[:,idx] = p̄_d
 		end
 		
-        if r[j] > A[:,j]' * p̄_d && all(A[:,j] * x[j] .≤ b - A * x)
+        if r[j] > A[:,j]' * p̄_d && all(A[:,j] * 1 .≤ b - A * x)
         	x[j] = 1
 	    else
 	        x[j] = 0
@@ -398,7 +394,16 @@ end
 begin
 	kk = [Int(50 * 2^i) for i in 0:log2(n/50)]
 	lpmodel_d = [Model(Ipopt.Optimizer) for i in 0:log2(n/50)]
-	res = oneTimeOlpDynamic(lpmodel_d, kk, A, b, r, n, p_matrix)
+	dynamic_result = oneTimeOlpDynamic(lpmodel_d, kk, A, b, r, n, p_matrix)
+end
+
+# ╔═╡ fcca00f0-ebba-48ec-8214-d48131f9d894
+begin
+	scatter(kVec, objVec./
+	6608.50913559336, xlabel="k", ylabel="competitive ratio", xaxis=:log, title="competitive ratio vs k", label = "One-time OLP fix k")
+	hline!([dynamic_result/primal_obj_value], label = "One-time OLP Dynamic")
+	xlims!(10, 10^4)
+	ylims!(0,1)
 end
 
 # ╔═╡ 002e43d3-e717-4666-bbd4-db3fd27f2150
@@ -406,6 +411,7 @@ begin
 	perror = zeros(Int(floor(log2(n/50))+1))
 	for i = 1:Int(floor(log2(n/50))+1)
 		perror[i] = norm(p_matrix[:, i] - p̄, 2)
+		# perror[i] = norm(p_matrix[:, i] , 2)
 	end
 end
 
@@ -414,9 +420,8 @@ perror
 
 # ╔═╡ 5271a54b-0a02-44a5-8f59-a2872f2ef107
 begin
-	scatter(kk, perror, xlabel="k", ylabel="L₂-norm of p error", xaxis=:log, title="L₂-norm of p error vs k")
+	scatter(kk, perror/perror[1], xlabel="k", ylabel="L₂-norm of p error", xaxis=:log, title="L₂-norm of p error vs k")
 	xlims!(10, 10^4)
-	ylims!(0.2,0.8)
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -1486,19 +1491,19 @@ version = "1.4.1+0"
 # ╠═f695e678-f507-11ed-15b9-f38c8a6c7eaf
 # ╟─a433b7e0-eabc-41e4-b475-f4d46f3df8b9
 # ╠═87e7e259-51ba-465b-ab24-c7e4d7209067
-# ╟─5902034c-e3d1-4b72-abce-33bbb785cfc5
+# ╠═5902034c-e3d1-4b72-abce-33bbb785cfc5
 # ╟─7a375c87-e421-4d6b-b29b-ce8f9126b9da
 # ╟─f04b6ef1-f438-4c54-90d0-37735f211df0
 # ╠═82c37b09-8ad2-46d4-9af6-6395eb2f7e57
 # ╟─b08f97df-37dc-4bdf-8e0b-7af63fb992eb
 # ╠═5691954b-46c1-4af5-9325-11a022dcd1a1
-# ╟─d1bf6e84-260d-4811-ad21-85acb2f9d5a6
+# ╠═d1bf6e84-260d-4811-ad21-85acb2f9d5a6
 # ╠═2fe22bb2-3c79-4a6a-97b6-4be7d8fc884d
 # ╠═6cec47fa-026f-40d6-bdca-956e0323faf2
 # ╠═a321e640-aafe-406d-aa6b-a6cc1e888c95
 # ╠═c8d75e0d-6ca5-4bdd-b696-83dd9935762a
 # ╠═3e1206e4-7cfe-4c4d-8981-1dac4302ba5b
-# ╠═ddd18d8c-4f4d-4f9c-9958-a44a95432af1
+# ╟─ddd18d8c-4f4d-4f9c-9958-a44a95432af1
 # ╟─5ed7af3d-9bc3-43f0-a69c-b4a2ebe9f14b
 # ╠═43e4fb45-00e9-4a0e-aa8f-1c4667f20342
 # ╠═48d8e218-59fb-4cb0-9240-8dd640d5be0b
@@ -1509,7 +1514,6 @@ version = "1.4.1+0"
 # ╠═0dad607b-e52d-48b9-80bc-96e1ad487811
 # ╠═dc263218-108a-495a-bb85-52b9aff2d5ae
 # ╠═34c23a67-5ef0-4b46-8e84-e30e79aa126d
-# ╠═fcca00f0-ebba-48ec-8214-d48131f9d894
 # ╠═ac15e428-e330-40cd-a57f-b4b5b5577c70
 # ╟─ec027907-b2f9-4838-9f4b-cf909f7a18a2
 # ╠═711da709-1eee-45dd-abae-de67f8b1511e
@@ -1517,6 +1521,7 @@ version = "1.4.1+0"
 # ╠═93d49d09-2fd2-4544-ad9f-aaaba3175c83
 # ╠═696df271-d03a-42b9-b7e8-545a6706ce5d
 # ╠═bb3d2c90-8169-4126-a8ae-10bab6a39839
+# ╠═fcca00f0-ebba-48ec-8214-d48131f9d894
 # ╠═002e43d3-e717-4666-bbd4-db3fd27f2150
 # ╠═cff4a67a-9cdd-4be7-b861-599a1df00208
 # ╠═5271a54b-0a02-44a5-8f59-a2872f2ef107
