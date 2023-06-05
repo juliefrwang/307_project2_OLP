@@ -172,7 +172,7 @@ function ActionHistoryOlp(model, A, b, r, n, p_matrix)
 	end
 
 	k = n
-	if r[k] > A[:,k]' * p && all(A[:,k] * 1 .≤ b - A * x)
+	if r[k] > A[:,k]' * p && all(A[:,k] * 1 .≤ b)
 		x[k] = 1
 	end
 
