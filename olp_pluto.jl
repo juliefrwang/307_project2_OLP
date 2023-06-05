@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.24
+# v0.19.25
 
 using Markdown
 using InteractiveUtils
@@ -38,7 +38,7 @@ begin
 	n = 10000 # total number of bidders
 	
 	# define b, total available quantity
-	b = fill(1000, m)
+	b = fill(n/10, m)
 	
 	# define p̄ of length m, ground truth price for each resource i
 	p̄ = rand(m)
@@ -148,6 +148,7 @@ let
     # declare solution
 	@show value.(p)
 	@show value.(y)
+	@show norm(value.(p) - p̄, 2)
 	@show objective_value(lpmodel_dual)
 end
 
@@ -236,8 +237,11 @@ md"""
 # One-time OLP
 """
 
+# ╔═╡ f6bd16e2-52ca-4fe2-b78d-35bce8a25a42
+p_matrix_onetime = zeros(m, Int(floor(log2(n/25))+1))
+
 # ╔═╡ c8d75e0d-6ca5-4bdd-b696-83dd9935762a
-function oneTimeOlp(model, k, A, b, r, n)
+function oneTimeOlp(model, k, A, b, r, n, pmatrix)
 	# initialize x for all n
 	x = zeros(n)
 	# Solve x up to k
@@ -256,6 +260,7 @@ function oneTimeOlp(model, k, A, b, r, n)
 	# objective value of primal 
 	show(A*x - b)
 	show(x[1:k])
+	pmatrix[:, Int(log2(Int(k/25)) + 1)] = p̄ 
 	return r' * x 
 
 end
@@ -276,11 +281,36 @@ md"""
 To solve the Online LP Primal and Dual problems, we can define the following functions:
 """
 
+# ╔═╡ 48e2012d-b9f8-445b-89e8-3c59bcc5ac57
+
+
+# ╔═╡ 3489c996-74a4-47be-998a-083f05525143
+md"""
+##### k = 1
+"""
+
+# ╔═╡ 23821acf-fe43-41c2-b4c0-948227a5ff7a
+# ╠═╡ disabled = true
+#=╠═╡
+begin
+	lpmodel_1 = Model(Ipopt.Optimizer)
+	oneTimeOlp(lpmodel_1, 1, A, b, r, n)
+end
+  ╠═╡ =#
+
+# ╔═╡ 20aaee8b-d4bd-4133-b4cd-2fdf04af8321
+md"""
+##### k = 25
+"""
+
 # ╔═╡ 43e4fb45-00e9-4a0e-aa8f-1c4667f20342
+# ╠═╡ disabled = true
+#=╠═╡
 begin
 	lpmodel_25 = Model(Ipopt.Optimizer)
 	oneTimeOlp(lpmodel_25, 25, A, b, r, n)
 end
+  ╠═╡ =#
 
 # ╔═╡ 48d8e218-59fb-4cb0-9240-8dd640d5be0b
 md"""
@@ -288,10 +318,13 @@ md"""
 """
 
 # ╔═╡ 2d968288-5c45-4aec-9f27-27fc21f71e46
+# ╠═╡ disabled = true
+#=╠═╡
 begin
 	lpmodel_50 = Model(Ipopt.Optimizer)
 	oneTimeOlp(lpmodel_50, 50, A, b, r, n)
 end
+  ╠═╡ =#
 
 # ╔═╡ 3f774e11-0b47-43b9-89a1-bc208c1bdbf2
 md"""
@@ -299,10 +332,13 @@ md"""
 """
 
 # ╔═╡ f6d2bca3-7da7-49f3-aaa6-7e468e7c51cb
+# ╠═╡ disabled = true
+#=╠═╡
 begin
 	lpmodel_100 = Model(Ipopt.Optimizer)
 	oneTimeOlp(lpmodel_100, 100, A, b, r, n)
 end
+  ╠═╡ =#
 
 # ╔═╡ 0ad1df2a-f582-451b-92d9-b12950bf3394
 md"""
@@ -310,10 +346,13 @@ md"""
 """
 
 # ╔═╡ 0dad607b-e52d-48b9-80bc-96e1ad487811
+# ╠═╡ disabled = true
+#=╠═╡
 begin
 	lpmodel_200 = Model(Ipopt.Optimizer)
 	oneTimeOlp(lpmodel_200, 200, A, b, r, n)
 end
+  ╠═╡ =#
 
 # ╔═╡ dc263218-108a-495a-bb85-52b9aff2d5ae
 md"""
@@ -327,22 +366,50 @@ begin
 	k = 25
 	while k <= n
 		lpmodel_ = Model(Ipopt.Optimizer)
-		push!(objVec, oneTimeOlp(lpmodel_, k, A, b, r, n))
+		push!(objVec, oneTimeOlp(lpmodel_, k, A, b, r, n, p_matrix_onetime))
 		push!(kVec, k)
 		k *= 2
 	end
 end
 
+# ╔═╡ 02171b4c-548f-4b01-9509-75b09ae116c4
+
+
 # ╔═╡ fcca00f0-ebba-48ec-8214-d48131f9d894
 begin
 	scatter(kVec, objVec./
-	6608.50913559336, xlabel="k", ylabel="competitive ratio", xaxis=:log, title="competitive ratio vs k")
+	7291.662553909081, xlabel="k", ylabel="competitive ratio", xaxis=:log, title="competitive ratio vs k", legend=false)
 	xlims!(10, 10^4)
 	ylims!(0,1)
 end
 
-# ╔═╡ ac15e428-e330-40cd-a57f-b4b5b5577c70
+# ╔═╡ a1ee0e26-0e17-4012-887c-563979db2261
 objVec
+
+# ╔═╡ f1bbc741-a0c6-4c15-adff-16c4664a76e7
+kVec
+
+# ╔═╡ c26a80f6-4abd-4349-97c0-8049891cf729
+p_matrix_onetime
+
+# ╔═╡ ac15e428-e330-40cd-a57f-b4b5b5577c70
+begin
+	perror_ontime = zeros(Int(floor(log2(n/25))+1))
+	for i in 1: Int(log2(Int(k/25)))
+		perror_ontime[i] = norm(p_matrix_onetime[:, i] - p̄, 2)
+	end
+	push!(kVec, 10000)
+	push!(perror_ontime, 0.22663457838251594)
+end
+
+# ╔═╡ 873ae295-de78-44bc-ba07-041711484b28
+
+begin
+	
+	scatter(kVec, perror_ontime, xlabel="k", ylabel="L₂-norm of p error", xaxis=:log, title="L₂-norm of p error vs k", legend = false)
+	#xlims!(10, 10^4 + 100)
+	#ylims!(0.2,0.8)
+end
 
 # ╔═╡ ec027907-b2f9-4838-9f4b-cf909f7a18a2
 md"""
@@ -351,10 +418,13 @@ The objective value should be the same as the offline model.
 """
 
 # ╔═╡ 711da709-1eee-45dd-abae-de67f8b1511e
+# ╠═╡ disabled = true
+#=╠═╡
 begin
 	lpmodel_10000 = Model(Ipopt.Optimizer)
 	oneTimeOlp(lpmodel_10000, n, A, b, r, n)
 end
+  ╠═╡ =#
 
 # ╔═╡ 85250945-a89c-46b5-9d93-46c248f044b1
 md"""
@@ -363,7 +433,7 @@ Now let us dynamically update the dual prices at time points k = 50, 100, 200, 4
 """
 
 # ╔═╡ 93d49d09-2fd2-4544-ad9f-aaaba3175c83
-p_matrix = zeros(m, Int(floor(log2(n/50))+1))
+p_matrix = zeros(m, Int(floor(log2(n/25))+1))
 
 # ╔═╡ 696df271-d03a-42b9-b7e8-545a6706ce5d
 function oneTimeOlpDynamic(model, k, A, b, r, n, p_matrix)
@@ -384,7 +454,7 @@ function oneTimeOlpDynamic(model, k, A, b, r, n, p_matrix)
 			p_matrix[:,idx] = p̄_d
 		end
 		
-        if r[j] > A[:,j]' * p̄_d && all(A[:,j] * x[j] .≤ b - A * x)
+        if r[j] > A[:,j]' * p̄_d && all(A[:,j] * 1 .≤ b - A * x)
         	x[j] = 1
 	    else
 	        x[j] = 0
@@ -396,28 +466,68 @@ end
 
 # ╔═╡ bb3d2c90-8169-4126-a8ae-10bab6a39839
 begin
-	kk = [Int(50 * 2^i) for i in 0:log2(n/50)]
-	lpmodel_d = [Model(Ipopt.Optimizer) for i in 0:log2(n/50)]
+	kk = [Int(25 * 2^i) for i in 0:log2(n/25)]
+	lpmodel_d = [Model(Ipopt.Optimizer) for i in 0:log2(n/25)]
 	res = oneTimeOlpDynamic(lpmodel_d, kk, A, b, r, n, p_matrix)
 end
 
+# ╔═╡ ccdc5482-bc51-4cdc-8f67-ab0f17f6dae8
+kk
+
 # ╔═╡ 002e43d3-e717-4666-bbd4-db3fd27f2150
 begin
-	perror = zeros(Int(floor(log2(n/50))+1))
-	for i = 1:Int(floor(log2(n/50))+1)
+	perror = zeros(Int(floor(log2(n/25))+1))
+	for i = 1:Int(floor(log2(n/25))+1)
 		perror[i] = norm(p_matrix[:, i] - p̄, 2)
 	end
+	push!(perror, 0.22663457838251594)
 end
 
-# ╔═╡ cff4a67a-9cdd-4be7-b861-599a1df00208
+# ╔═╡ 4a76f7a2-5038-4a00-8f9f-52deefe2d95c
+perror_ontime
+
+# ╔═╡ c3ff515b-4952-4450-92b9-04f5a7158dfc
+perror_withSlack = [0.762875
+0.568008
+0.574372
+0.572801
+0.355248
+0.295297
+0.250077
+0.23705
+0.231775
+0.226785] 
+
+# ╔═╡ b136923a-acc0-47c8-9751-8fba3495ac1f
+kk
+
+# ╔═╡ 4757dfe5-f46f-482a-978e-641d7c8ee357
+begin
+	scatter(kk, perror_ontime, xlabel="k", ylabel="L₂-norm of p error", xaxis=:log, title="L₂-norm of p error vs k", label = "w/o log penalty")
+	xlims!(10, 10^4+1000)
+	scatter!(kk, perror_withSlack,label = "w/ log penalty")
+	#ylims!(0.2,3)
+end
+
+# ╔═╡ 0db3d689-39c2-4ea3-8f4f-be3c5bd2302c
+show(p_matrix[1])
+
+# ╔═╡ 5ee3eb64-65df-46fe-86e6-aabbea5d97c2
+begin
+	pnorm = zeros(Int(floor(log2(n/25))+1))
+	for i = 1:Int(floor(log2(n/25))+1)
+		pnorm[i] = norm(p_matrix[:, i], 2)
+	
+	end
+	push!(pnorm, norm(p̄, 2))
+end
+
+# ╔═╡ 479f93a6-1745-40e7-af37-99c1449ccded
+show(pnorm)
+
+# ╔═╡ 36014f96-8a85-4f63-8161-bc86293dcf3b
 perror
 
-# ╔═╡ 5271a54b-0a02-44a5-8f59-a2872f2ef107
-begin
-	scatter(kk, perror, xlabel="k", ylabel="L₂-norm of p error", xaxis=:log, title="L₂-norm of p error vs k")
-	xlims!(10, 10^4)
-	ylims!(0.2,0.8)
-end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1484,11 +1594,11 @@ version = "1.4.1+0"
 # ╟─55286f3b-8155-4d0a-b701-576363e12b05
 # ╠═60795b54-151c-4597-af3c-57d3e9856de5
 # ╠═f695e678-f507-11ed-15b9-f38c8a6c7eaf
-# ╟─a433b7e0-eabc-41e4-b475-f4d46f3df8b9
+# ╠═a433b7e0-eabc-41e4-b475-f4d46f3df8b9
 # ╠═87e7e259-51ba-465b-ab24-c7e4d7209067
 # ╟─5902034c-e3d1-4b72-abce-33bbb785cfc5
 # ╟─7a375c87-e421-4d6b-b29b-ce8f9126b9da
-# ╟─f04b6ef1-f438-4c54-90d0-37735f211df0
+# ╠═f04b6ef1-f438-4c54-90d0-37735f211df0
 # ╠═82c37b09-8ad2-46d4-9af6-6395eb2f7e57
 # ╟─b08f97df-37dc-4bdf-8e0b-7af63fb992eb
 # ╠═5691954b-46c1-4af5-9325-11a022dcd1a1
@@ -1496,12 +1606,17 @@ version = "1.4.1+0"
 # ╠═2fe22bb2-3c79-4a6a-97b6-4be7d8fc884d
 # ╠═6cec47fa-026f-40d6-bdca-956e0323faf2
 # ╠═a321e640-aafe-406d-aa6b-a6cc1e888c95
+# ╠═f6bd16e2-52ca-4fe2-b78d-35bce8a25a42
 # ╠═c8d75e0d-6ca5-4bdd-b696-83dd9935762a
 # ╠═3e1206e4-7cfe-4c4d-8981-1dac4302ba5b
-# ╠═ddd18d8c-4f4d-4f9c-9958-a44a95432af1
+# ╟─ddd18d8c-4f4d-4f9c-9958-a44a95432af1
 # ╟─5ed7af3d-9bc3-43f0-a69c-b4a2ebe9f14b
+# ╠═48e2012d-b9f8-445b-89e8-3c59bcc5ac57
+# ╟─3489c996-74a4-47be-998a-083f05525143
+# ╠═23821acf-fe43-41c2-b4c0-948227a5ff7a
+# ╟─20aaee8b-d4bd-4133-b4cd-2fdf04af8321
 # ╠═43e4fb45-00e9-4a0e-aa8f-1c4667f20342
-# ╠═48d8e218-59fb-4cb0-9240-8dd640d5be0b
+# ╟─48d8e218-59fb-4cb0-9240-8dd640d5be0b
 # ╠═2d968288-5c45-4aec-9f27-27fc21f71e46
 # ╟─3f774e11-0b47-43b9-89a1-bc208c1bdbf2
 # ╠═f6d2bca3-7da7-49f3-aaa6-7e468e7c51cb
@@ -1509,16 +1624,28 @@ version = "1.4.1+0"
 # ╠═0dad607b-e52d-48b9-80bc-96e1ad487811
 # ╠═dc263218-108a-495a-bb85-52b9aff2d5ae
 # ╠═34c23a67-5ef0-4b46-8e84-e30e79aa126d
+# ╠═02171b4c-548f-4b01-9509-75b09ae116c4
 # ╠═fcca00f0-ebba-48ec-8214-d48131f9d894
+# ╠═a1ee0e26-0e17-4012-887c-563979db2261
+# ╠═f1bbc741-a0c6-4c15-adff-16c4664a76e7
+# ╠═c26a80f6-4abd-4349-97c0-8049891cf729
 # ╠═ac15e428-e330-40cd-a57f-b4b5b5577c70
+# ╠═873ae295-de78-44bc-ba07-041711484b28
 # ╟─ec027907-b2f9-4838-9f4b-cf909f7a18a2
 # ╠═711da709-1eee-45dd-abae-de67f8b1511e
 # ╠═85250945-a89c-46b5-9d93-46c248f044b1
 # ╠═93d49d09-2fd2-4544-ad9f-aaaba3175c83
 # ╠═696df271-d03a-42b9-b7e8-545a6706ce5d
 # ╠═bb3d2c90-8169-4126-a8ae-10bab6a39839
+# ╠═ccdc5482-bc51-4cdc-8f67-ab0f17f6dae8
 # ╠═002e43d3-e717-4666-bbd4-db3fd27f2150
-# ╠═cff4a67a-9cdd-4be7-b861-599a1df00208
-# ╠═5271a54b-0a02-44a5-8f59-a2872f2ef107
+# ╠═4a76f7a2-5038-4a00-8f9f-52deefe2d95c
+# ╠═c3ff515b-4952-4450-92b9-04f5a7158dfc
+# ╠═b136923a-acc0-47c8-9751-8fba3495ac1f
+# ╠═4757dfe5-f46f-482a-978e-641d7c8ee357
+# ╠═0db3d689-39c2-4ea3-8f4f-be3c5bd2302c
+# ╠═5ee3eb64-65df-46fe-86e6-aabbea5d97c2
+# ╠═479f93a6-1745-40e7-af37-99c1449ccded
+# ╠═36014f96-8a85-4f63-8161-bc86293dcf3b
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
